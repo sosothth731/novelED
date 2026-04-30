@@ -549,11 +549,19 @@ localStorage.setItem = function(k, v) {
       </div>
       <div class="card" style="margin-top:12px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
-          <div class="sec-label" style="margin:0">오늘 일정표 <span style="font-size:10px;font-weight:400;color:var(--t2);text-transform:none;letter-spacing:0">(투두를 시간으로 드래그)</span></div>
+          <div style="display:flex;gap:0">
+            <button id="sched-tab-timeline" onclick="switchSchedTab('timeline')" style="font-size:12px;padding:4px 12px;border:0.5px solid var(--b2);border-right:none;border-radius:var(--r) 0 0 var(--r);background:var(--acc);color:#fff;cursor:pointer;font-family:inherit">일정표</button>
+            <button id="sched-tab-analysis" onclick="switchSchedTab('analysis')" style="font-size:12px;padding:4px 12px;border:0.5px solid var(--b2);border-radius:0 var(--r) var(--r) 0;background:var(--bg1);color:var(--t2);cursor:pointer;font-family:inherit">분석</button>
+          </div>
           <span style="font-size:11px;color:var(--t2)" id="schedule-date-lbl"></span>
         </div>
-        <div id="time-schedule-grid" style="position:relative;overflow-y:auto;max-height:480px">
-          <!-- rendered by renderTimeSchedule() -->
+        <!-- 일정표 탭 -->
+        <div id="sched-panel-timeline" style="position:relative;overflow-y:auto;max-height:480px">
+          <div id="time-schedule-grid"></div>
+        </div>
+        <!-- 분석 탭 -->
+        <div id="sched-panel-analysis" style="display:none">
+          <div id="sched-analysis-content"></div>
         </div>
       </div>
     </div>
@@ -1237,8 +1245,10 @@ function renderTodos(){
     }).join(''):'<div style="font-size:12px;color:var(--t2);padding:.5rem 0">예정된 할 일 없음</div>';
   }
 
-  const done=todos.filter(t=>t.done).length,total=todos.length,pct=total?Math.round(done/total*100):0;
-  const pp=document.getElementById('todo-progress');if(pp)pp.textContent=`${done}/${total} 완료`;
+  const todayStrProg=`${todayStart.getFullYear()}-${String(todayStart.getMonth()+1).padStart(2,'0')}-${String(todayStart.getDate()).padStart(2,'0')}`;
+  const todayTodos=todos.filter(t=>!t.date||t.date===todayStrProg);
+  const done=todayTodos.filter(t=>t.done).length,total=todayTodos.length,pct=total?Math.round(done/total*100):0;
+  const pp=document.getElementById('todo-progress');if(pp)pp.textContent=`${done}/${total} 완료 (오늘)`;
   const pb=document.getElementById('todo-pct');if(pb)pb.textContent=pct+'%';
   const bar=document.getElementById('todo-prog-bar');if(bar)bar.style.width=pct+'%';
   const st=document.getElementById('stat-todo');if(st)st.textContent=todos.filter(t=>!t.done).length;
@@ -1868,7 +1878,75 @@ function deleteContact(){
   save(KEYS.contacts,contacts);renderContacts();closeContactModal();
 }
 
-// ══════ TIME SCHEDULE — 8:00~22:00, 10분 단위, 투두 드래그드롭 ══════
+// ══════ TIME SCHEDULE TABS ══════
+function switchSchedTab(tab){
+  const isTimeline=tab==='timeline';
+  document.getElementById('sched-panel-timeline').style.display=isTimeline?'block':'none';
+  document.getElementById('sched-panel-analysis').style.display=isTimeline?'none':'block';
+  document.getElementById('sched-tab-timeline').style.background=isTimeline?'var(--acc)':'var(--bg1)';
+  document.getElementById('sched-tab-timeline').style.color=isTimeline?'#fff':'var(--t2)';
+  document.getElementById('sched-tab-analysis').style.background=isTimeline?'var(--bg1)':'var(--acc)';
+  document.getElementById('sched-tab-analysis').style.color=isTimeline?'var(--t2)':'#fff';
+  if(!isTimeline)renderSchedAnalysis();
+}
+function renderSchedAnalysis(){
+  const el=document.getElementById('sched-analysis-content');if(!el)return;
+  const HOUR_START=8,HOUR_END=23,TOTAL_MIN=(HOUR_END-HOUR_START)*60;
+  // 블록 총 업무 시간
+  const workedMin=timeBlocks.reduce((s,b)=>s+b.duration,0);
+  const freeMin=Math.max(0,TOTAL_MIN-workedMin);
+  const pct=Math.round(workedMin/TOTAL_MIN*100);
+  // 카테고리별 집계
+  const catMap={};
+  timeBlocks.forEach(b=>{
+    // 블록 텍스트에서 카테고리 추출 ([교정] 형태)
+    const m=b.text.match(/^\[(.+?)\]/);
+    const cat=m?Object.entries(catLabels).find(([k,v])=>v===m[1])?.[0]||'etc':'etc';
+    catMap[cat]=(catMap[cat]||0)+b.duration;
+  });
+  const fmtM=m=>`${Math.floor(m/60)}h ${m%60}m`;
+  // 집중도 멘트
+  const msg=pct>=80?'🔥 오늘 정말 빽빽하게 달렸어요!':pct>=60?'💪 집중력 좋은 하루예요':pct>=40?'✨ 적당히 여유도 있었네요':pct>=20?'☁ 오늘은 좀 여유로웠어요':'🌿 충분한 휴식을 취했어요';
+  el.innerHTML=`
+    <div style="margin-bottom:1rem">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+        <span style="font-weight:500">오늘 집중도</span>
+        <span style="color:var(--acc);font-weight:600">${pct}%</span>
+      </div>
+      <div style="height:10px;background:var(--b1);border-radius:99px;overflow:hidden;margin-bottom:6px">
+        <div style="height:100%;background:var(--acc);width:${pct}%;border-radius:99px;transition:width .4s"></div>
+      </div>
+      <div style="font-size:11px;color:var(--t2)">${msg}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1rem">
+      <div class="card-sm" style="text-align:center">
+        <div style="font-size:18px;font-weight:600;color:var(--acc)">${fmtM(workedMin)}</div>
+        <div style="font-size:11px;color:var(--t2);margin-top:2px">📋 총 업무 시간</div>
+      </div>
+      <div class="card-sm" style="text-align:center">
+        <div style="font-size:18px;font-weight:600;color:var(--a3)">${fmtM(freeMin)}</div>
+        <div style="font-size:11px;color:var(--t2);margin-top:2px">☕ 여유 시간</div>
+      </div>
+    </div>
+    ${Object.keys(catMap).length?`
+    <div style="font-size:11px;font-weight:500;color:var(--t2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">카테고리별</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${Object.entries(catMap).sort((a,b)=>b[1]-a[1]).map(([cat,min])=>`
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px">
+        <span class="badge ${catColors[cat]||'badge-gray'}" style="min-width:36px;text-align:center">${catLabels[cat]||cat}</span>
+        <div class="progress-wrap" style="flex:1;height:6px">
+          <div class="progress-bar" style="background:${catBg[cat]||'#94a3b8'};width:${Math.round(min/workedMin*100)}%"></div>
+        </div>
+        <span style="color:var(--t2);min-width:48px;text-align:right">${fmtM(min)}</span>
+      </div>`).join('')}
+    </div>`:'<div style="font-size:12px;color:var(--t2);text-align:center;padding:1rem">아직 기록된 업무 없음<br><span style="font-size:11px">타이머를 실행하면 자동으로 기록돼요</span></div>'}
+    <div style="margin-top:1rem;padding-top:1rem;border-top:0.5px solid var(--b1)">
+      <div style="display:flex;justify-content:space-between;font-size:12px">
+        <span style="color:var(--t2)">기준 시간 (08:00~23:00)</span>
+        <span style="font-weight:500">${fmtM(TOTAL_MIN)}</span>
+      </div>
+    </div>`;
+}
 let timeBlocks=load('ned_timeblocks',[]);
 // catBg 색상과 맞추는 색상 매핑 (카테고리 인덱스 기반)
 const TIME_COLORS=['#dbeafe','#dcfce7','#fef9c3','#e0f2fe','#fce7f3','#dcfce7','#f1f5f9'];
@@ -2221,6 +2299,9 @@ function init(){
     save(KEYS.todos,todos);
     save(KEYS.calSecs,catSecs);
     save(KEYS.totalSec,totalLoggedSec);
+    // 오늘 일정표 초기화 (전날 블록 삭제)
+    timeBlocks=[];
+    save('ned_timeblocks',timeBlocks);
     save(KEYS.lastDate,todayStr);
   }
 
