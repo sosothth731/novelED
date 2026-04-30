@@ -2303,6 +2303,15 @@ function init(){
     timeBlocks=[];
     save('ned_timeblocks',timeBlocks);
     save(KEYS.lastDate,todayStr);
+  } else {
+    // 날짜가 같더라도 timeBlocks 중 오늘 날짜가 아닌 블록 필터링
+    // (Firestore pull로 어제 데이터가 복원됐을 경우 대비)
+    const prevLen=timeBlocks.length;
+    timeBlocks=timeBlocks.filter(b=>{
+      if(!b._date)return true; // 날짜 없는 수동 블록은 유지
+      return b._date===todayStr;
+    });
+    if(timeBlocks.length!==prevLen)save('ned_timeblocks',timeBlocks);
   }
 
   renderTodos();renderWorks();renderCalendar();renderPromos();renderAuthors();renderContacts();
