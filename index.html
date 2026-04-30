@@ -256,6 +256,26 @@ onAuthStateChanged(auth, async user => {
 
     // localStorage가 업데이트됐으므로 앱 변수 재로드
     reloadAppData();
+
+    // pull 후 날짜 체크 — 오늘 아닌 timeBlocks 즉시 제거
+    (function(){
+      const now=new Date();
+      const todayStr=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+      const lastDate=localStorage.getItem('ned_lastdate')?JSON.parse(localStorage.getItem('ned_lastdate')):'';
+      if(lastDate!==todayStr){
+        // 날짜 바뀜 → timeBlocks 전부 초기화
+        localStorage.setItem('ned_timeblocks',JSON.stringify([]));
+      } else {
+        // 같은 날이지만 _date 다른 블록 제거
+        let tb=[];try{tb=JSON.parse(localStorage.getItem('ned_timeblocks')||'[]');}catch(e){}
+        const cleaned=tb.filter(b=>!b._date||b._date===todayStr);
+        if(cleaned.length!==tb.length)localStorage.setItem('ned_timeblocks',JSON.stringify(cleaned));
+      }
+      // 앱 변수에도 반영
+      if(typeof timeBlocks!=='undefined'){
+        try{timeBlocks=JSON.parse(localStorage.getItem('ned_timeblocks')||'[]');}catch(e){timeBlocks=[];}
+      }
+    })();
     // 앱 렌더링
     window._fbInitDone = true;
     if (typeof init === 'function') init();
@@ -283,8 +303,9 @@ async function pullFromFirestore(uid) {
       const d = userDoc.data();
       const keys = ['ned_todos','ned_works','ned_sched','ned_promos','ned_authors',
                     'ned_contacts','ned_excl','ned_memos','ned_theme','ned_weekly',
-                    'ned_timeblocks','ned_weeksecs','ned_lastweek','ned_lastdate',
+                    'ned_weeksecs','ned_lastweek',
                     'ned_catsecs','ned_totalsec'];
+      // ned_lastdate, ned_timeblocks는 pull 제외 — 기기별 날짜/일정표 독립 관리
       // 풀 중에는 push 트리거 방지
       window._pulling = true;
       keys.forEach(k => {
@@ -1052,7 +1073,7 @@ function stopTodoTimer(){
         text:`[${catLabels[t.cat]}] ${t.text}`,
         colorIdx,
         todoId:t.id,
-        auto:true // 자동 생성 표시
+        auto:true,_date:isoDate(new Date())
       });
       save('ned_timeblocks',timeBlocks);
       renderTimeSchedule();
@@ -2029,7 +2050,7 @@ function promptTimeBlock(hour,minute){
   const durStr=prompt('소요 시간 (분)? 기본 30','30');
   const duration=parseInt(durStr)||30;
   const colorIdx=timeBlocks.length%7;
-  timeBlocks.push({id:Date.now(),hour,minute,duration,text:text.trim(),colorIdx});
+  timeBlocks.push({id:Date.now(),hour,minute,duration,text:text.trim(),colorIdx,_date:isoDate(new Date())});
   save('ned_timeblocks',timeBlocks);renderTimeSchedule();
 }
 function dropTodoToSchedule(e,hour,minute){
@@ -2043,7 +2064,7 @@ function dropTodoToSchedule(e,hour,minute){
   const durStr=prompt(`"${t.text}" 소요 시간 (분)? 기본 60`,'60');
   const duration=parseInt(durStr)||60;
   const colorIdx=timeBlocks.length%7;
-  timeBlocks.push({id:Date.now(),hour,minute,duration,text:t.text,colorIdx,todoId:t.id});
+  timeBlocks.push({id:Date.now(),hour,minute,duration,text:t.text,colorIdx,todoId:t.id,_date:isoDate(new Date())});
   save('ned_timeblocks',timeBlocks);renderTimeSchedule();
 }
 function deleteTimeBlock(id){
