@@ -1082,8 +1082,9 @@ function stopTodoTimer(){
     // ── 오늘 일정표에 자동 블록 생성 ──
     if(t._wallStart&&t.timerSec>=60){
       const st=new Date(t._wallStart);
-      const startHour=st.getHours();
-      const startMin=Math.round(st.getMinutes()/10)*10; // 10분 단위 반올림
+      let startHour=st.getHours();
+      let startMin=Math.round(st.getMinutes()/10)*10;
+      if(startMin>=60){startMin=0;startHour=Math.min(startHour+1,22);}
       const durationMin=Math.max(1,Math.round((Date.now()-new Date(t._wallStart).getTime())/60000));
       // 카테고리별 색상 인덱스 매핑
       const catColorIdx={review:0,edit:1,design:2,comm:3,secondary:4,make:5,etc:6};
@@ -2040,8 +2041,8 @@ function renderSchedAnalysis(){
 }
 let timeBlocks=load('ned_timeblocks',[]);
 // catBg 색상과 맞추는 색상 매핑 (카테고리 인덱스 기반)
-const TIME_COLORS=['#dbeafe','#dcfce7','#fef9c3','#e0f2fe','#fce7f3','#dcfce7','#f1f5f9'];
-const TEXT_COLORS=['#1d4ed8','#15803d','#a16207','#0369a1','#be185d','#166534','#475569'];
+const TIME_COLORS=['#dbeafe','#ccfbf1','#fef3c7','#ede9fe','#fce7f3','#dcfce7','#f1f5f9']; // review,edit,design,comm,secondary,make,etc
+const TEXT_COLORS=['#1d4ed8','#0f766e','#92400e','#7c3aed','#be185d','#15803d','#475569']; // review,edit,design,comm,secondary,make,etc
 // 자동 블록용 카테고리 색상
 const CAT_BG_LIGHT={review:'#dbeafe',edit:'#ccfbf1',design:'#fef9c3',secondary:'#fce7f3',comm:'#ede9fe',make:'#dcfce7',etc:'#f1f5f9'};
 const CAT_TEXT={review:'#1d4ed8',edit:'#0f766e',design:'#a16207',secondary:'#be185d',comm:'#7c3aed',make:'#15803d',etc:'#475569'};
@@ -2133,8 +2134,9 @@ function dropTodoToSchedule(e,hour,minute){
   timeBlocks=timeBlocks.filter(b=>b.todoId!==t.id);
   const durStr=prompt(`"${t.text}" 소요 시간 (분)? 기본 60`,'60');
   const duration=parseInt(durStr)||60;
-  const colorIdx=timeBlocks.length%7;
-  timeBlocks.push({id:Date.now(),hour,minute,duration,text:t.text,colorIdx,todoId:t.id,_date:isoDate(new Date())});
+  const _catIdx={review:0,edit:1,design:2,comm:3,secondary:4,make:5,etc:6};
+  const colorIdx=_catIdx[t.cat]??6;
+  timeBlocks.push({id:Date.now(),hour,minute,duration,text:t.text,colorIdx,todoId:t.id,_date:isoDate(new Date()),cat:t.cat});
   save('ned_timeblocks',timeBlocks);renderTimeSchedule();
 }
 function deleteTimeBlock(id){
