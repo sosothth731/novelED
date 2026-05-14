@@ -553,8 +553,8 @@ localStorage.setItem = function(k, v) {
         </div>
         <!-- 오늘 할 일 드롭존 -->
         <div id="todo-list"
-          ondragover="event.preventDefault();this.style.outline='2px dashed var(--acc)'"
-          ondragleave="this.style.outline=''"
+          ondragover="event.preventDefault()"
+          ondragleave=""
           ondrop="dropTodoToToday(event);this.style.outline=''">
         </div>
         <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--t2);margin-top:10px;padding-top:10px;border-top:0.5px solid var(--b1)">
