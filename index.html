@@ -1670,10 +1670,44 @@ function renderExclAssociated(){
   // Just refresh exclusive display to pick up any calendar links
   renderExclusive();
 }
+function getKoreanHolidays(year){
+  // 고정 공휴일
+  const fixed=[
+    `${year}-01-01`, // 신정
+    `${year}-03-01`, // 삼일절
+    `${year}-05-05`, // 어린이날
+    `${year}-06-06`, // 현충일
+    `${year}-08-15`, // 광복절
+    `${year}-10-03`, // 개천절
+    `${year}-10-09`, // 한글날
+    `${year}-12-25`, // 크리스마스
+  ];
+  // 음력 기반 공휴일 (연도별 하드코딩 2025~2027)
+  const lunar={
+    2025:[
+      '2025-01-28','2025-01-29','2025-01-30', // 설날
+      '2025-05-05', // 부처님오신날
+      '2025-10-05','2025-10-06','2025-10-07', // 추석
+    ],
+    2026:[
+      '2026-02-16','2026-02-17','2026-02-18', // 설날
+      '2026-05-24', // 부처님오신날
+      '2026-09-24','2026-09-25','2026-09-26', // 추석
+    ],
+    2027:[
+      '2027-02-06','2027-02-07','2027-02-08', // 설날
+      '2027-05-13', // 부처님오신날
+      '2027-10-14','2027-10-15','2027-10-16', // 추석
+    ],
+  };
+  return new Set([...fixed,...(lunar[year]||[])]);
+}
+
 function renderSchedCal(){
   const el=document.getElementById('sched-cal-title');if(el)el.textContent=`${schedCalYear}년 ${schedCalMonth+1}월`;
   const body=document.getElementById('sched-cal-body');if(!body)return;
   body.innerHTML='';
+  const holidays=getKoreanHolidays(schedCalYear);
   const fd=new Date(schedCalYear,schedCalMonth,1).getDay(),off=fd,dim=new Date(schedCalYear,schedCalMonth+1,0).getDate(),pd=new Date(schedCalYear,schedCalMonth,0).getDate();
   const today=new Date();today.setHours(0,0,0,0);
   for(let i=0;i<off;i++){const d=document.createElement('div');d.className='cal-day other-month';d.innerHTML=`<div class="cal-day-num">${pd-off+i+1}</div>`;body.appendChild(d);}
@@ -1681,8 +1715,13 @@ function renderSchedCal(){
     const div=document.createElement('div');div.className='cal-day';
     if(today.getFullYear()===schedCalYear&&today.getMonth()===schedCalMonth&&today.getDate()===d)div.classList.add('today');
     const dateStr=`${schedCalYear}-${String(schedCalMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dow=new Date(schedCalYear,schedCalMonth,d).getDay();
+    const isHoliday=holidays.has(dateStr);
+    const isSun=dow===0;
+    const isSat=dow===6;
+    const numColor=isHoliday||isSun?'#e94560':isSat?'#5a8fa0':'';
     const pubs=schedPub.filter(s=>s.date===dateStr);
-    div.innerHTML=`<div class="cal-day-num">${d}</div>`+pubs.map(s=>{
+    div.innerHTML=`<div class="cal-day-num" style="${numColor?'color:'+numColor+';':''}">${d}${isHoliday?'<span style="font-size:8px;margin-left:2px;opacity:.7">●</span>':''}</div>`+pubs.map(s=>{
       const dDay=s.date?Math.round((new Date(s.date)-today)/864e5):null;
       const platCls=s.platform==='시리즈'?'sc-teal':s.platform==='리디'?'sc-blue':s.platform==='카카오'?'sc-amber':dDay===null?'sc-gray':dDay<=7?'sc-red':new Date(s.date).getMonth()===schedCalMonth?'sc-blue':'sc-teal';
       return`<div class="sched-cal-event ${platCls}" title="${s.author} · ${s.note}">${s.title} <span style="opacity:.7;font-size:9px">[${s.platform}]</span></div>`;
