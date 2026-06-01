@@ -636,9 +636,14 @@ localStorage.setItem = function(k, v) {
 <div id="page-weekly" class="page">
   <div class="page-title">위클리 투두 <span id="weekly-range" style="font-size:13px;font-weight:400;color:var(--t2)"></span></div>
   <div style="display:flex;gap:8px;margin-bottom:1rem;align-items:center">
-    <button class="btn btn-sm" onclick="changeWeek(-1)">← 이전주</button>
-    <button class="btn btn-sm" onclick="changeWeek(1)">다음주 →</button>
+    <button class="btn btn-sm" onclick="changeWeek(-1)">← 이전</button>
+    <button class="btn btn-sm" onclick="changeWeek(1)">다음 →</button>
     <button class="btn btn-sm" onclick="weekOffset=0;renderWeekly()">오늘</button>
+    <div style="display:flex;border:0.5px solid var(--b2);border-radius:var(--r);overflow:hidden;margin-left:4px">
+      <button id="wk-btn-1" onclick="setWeekCount(1)" style="font-size:11px;padding:3px 10px;border:none;background:var(--bg2);color:var(--t2);cursor:pointer;font-family:inherit">1주</button>
+      <button id="wk-btn-2" onclick="setWeekCount(2)" style="font-size:11px;padding:3px 10px;border:none;background:var(--acc);color:#fff;cursor:pointer;font-family:inherit">2주</button>
+      <button id="wk-btn-3" onclick="setWeekCount(3)" style="font-size:11px;padding:3px 10px;border:none;background:var(--bg2);color:var(--t2);cursor:pointer;font-family:inherit">3주</button>
+    </div>
     <button class="btn btn-sm btn-acc" style="margin-left:auto" onclick="openWeeklyModal(null)">+ 추가</button>
   </div>
   <div id="weekly-grid"></div>
@@ -1231,9 +1236,29 @@ function makeTodoRow(t,orderNum){
     <span style="font-size:11px;color:var(--t2);font-variant-numeric:tabular-nums;min-width:42px;text-align:right">${elapsed>0?fmtHM(elapsed):''}</span>
     <button style="font-size:10px;padding:2px 7px;border-radius:99px;border:0.5px solid var(--b2);background:${t.running?'var(--acc)':'var(--bg2)'};cursor:pointer;font-family:inherit;color:${t.running?'#fff':'var(--t2)'};" onclick="${t.running?'stopTodoTimer()':'startTodoTimer('+t.id+')'}">${t.running?'■':'▶'}</button>
     <button class="edit-btn" onclick="openTodoModal(${t.id})">수정</button>
+    <button class="edit-btn" onclick="copyTodo(${t.id})" title="복사" style="padding:2px 6px">⎘</button>
   </div>`;
 }
 
+function copyTodo(id){
+  const t=todos.find(x=>x.id===id);if(!t)return;
+  const today=new Date();
+  const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const copy={
+    id:Date.now(),
+    text:t.text,
+    cat:t.cat,
+    done:false,
+    priority:t.priority,
+    timerSec:0,timerSecBase:0,running:false,
+    date:todayStr,
+    manualOrder:null
+  };
+  // 원본 바로 아래에 삽입
+  const idx=todos.findIndex(x=>x.id===id);
+  todos.splice(idx+1,0,copy);
+  save(KEYS.todos,todos);renderTodos();
+}
 function reorderTodo(targetId){
   if(draggingTodoId===null||draggingTodoId===targetId)return;
   const fromTodo=todos.find(t=>t.id===draggingTodoId);
@@ -2144,14 +2169,51 @@ function renderTimeSchedule(){
     const bg=TIME_COLORS[b.colorIdx%7];
     const tc=TEXT_COLORS[b.colorIdx%7];
     const borderL=b.auto?`border-left:3px solid ${tc};`:'';
-    rowsHTML+=`<div style="position:absolute;top:${top}px;left:${LBL_W+2}px;right:4px;height:${height}px;background:${bg};color:${tc};${borderL}border-radius:6px;padding:3px 6px;font-size:10px;font-weight:500;overflow:hidden;z-index:10;display:flex;align-items:flex-start;justify-content:space-between;gap:4px;box-shadow:0 1px 4px rgba(0,0,0,.08)"
+    rowsHTML+=`<div id="tb-${b.id}" style="position:absolute;top:${top}px;left:${LBL_W+2}px;right:4px;height:${height}px;background:${bg};color:${tc};${borderL}border-radius:6px;padding:3px 6px 8px;font-size:10px;font-weight:500;overflow:hidden;z-index:10;display:flex;flex-direction:column;gap:2px;box-shadow:0 1px 4px rgba(0,0,0,.08);user-select:none"
       title="${b.text} (${b.duration}분)${b.auto?' · 자동기록':''}">
-      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.auto?'▶ ':''}<b>${String(b.hour).padStart(2,'0')}:${String(b.minute).padStart(2,'0')}</b> ${b.text}</span>
-      <button onclick="deleteTimeBlock(${b.id})" style="background:none;border:none;cursor:pointer;color:${tc};opacity:.6;font-size:11px;padding:0;line-height:1;flex-shrink:0">✕</button>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px">
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.auto?'▶ ':''}<b>${String(b.hour).padStart(2,'0')}:${String(b.minute).padStart(2,'0')}</b> ${b.text}</span>
+        <button onclick="deleteTimeBlock(${b.id})" style="background:none;border:none;cursor:pointer;color:${tc};opacity:.6;font-size:11px;padding:0;line-height:1;flex-shrink:0">✕</button>
+      </div>
+      <div onmousedown="startResizeBlock(event,${b.id})"
+        style="position:absolute;bottom:0;left:0;right:0;height:8px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;opacity:.5">
+        <div style="width:20px;height:2px;background:${tc};border-radius:2px"></div>
+      </div>
     </div>`;
   });
 
   grid.innerHTML=`<div style="position:relative;height:${totalH}px">${rowsHTML}</div>`;
+}
+
+// ── 타임블록 크기 조절 ──
+let _resizing=null;
+function startResizeBlock(e,id){
+  e.preventDefault();e.stopPropagation();
+  const b=timeBlocks.find(x=>x.id===id);if(!b)return;
+  const el=document.getElementById('tb-'+id);if(!el)return;
+  const ROW_H=52;
+  const startY=e.clientY;
+  const startDur=b.duration;
+  _resizing=id;
+  const onMove=ev=>{
+    const dy=ev.clientY-startY;
+    const deltaMins=Math.round(dy/(ROW_H/60)/10)*10; // 10분 단위
+    const newDur=Math.max(10,startDur+deltaMins);
+    b.duration=newDur;
+    el.style.height=Math.max(18,newDur*(ROW_H/60))+'px';
+    // 시간 표시 업데이트
+    const label=el.querySelector('b');
+    if(label)label.parentElement.lastChild.textContent=''; // clear
+  };
+  const onUp=()=>{
+    _resizing=null;
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+    save('ned_timeblocks',timeBlocks);
+    renderTimeSchedule();
+  };
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('mouseup',onUp);
 }
 
 function promptTimeBlock(hour,minute){
@@ -2190,7 +2252,19 @@ function setTheme(id){document.body.setAttribute('data-theme',id);save(KEYS.them
 
 // ══════ WEEKLY TODO ══════
 const DAY_LABELS=['월','화','수','목','금','토','일'];
-let weekOffset=0,editingWeeklyId=null;
+let weekOffset=0,editingWeeklyId=null,weekCount=2;
+
+function setWeekCount(n){
+  weekCount=n;
+  [1,2,3].forEach(i=>{
+    const btn=document.getElementById('wk-btn-'+i);
+    if(!btn)return;
+    btn.style.background=i===n?'var(--acc)':'var(--bg2)';
+    btn.style.color=i===n?'#fff':'var(--t2)';
+  });
+  renderWeekly();
+}
+
 
 function getWeekStart(offset){
   const now=new Date();
@@ -2255,7 +2329,7 @@ function renderWeekly(){
     days.slice(7).map((d,i)=>renderDay(d,i+7,ws2Str)).join('');
 }
 
-function changeWeek(dir){weekOffset+=dir*2;renderWeekly();}
+function changeWeek(dir){weekOffset+=dir*weekCount;renderWeekly();}
 
 function dragWeeklyTodo(e,id){draggingWeeklyId=id;e.dataTransfer.effectAllowed='move';}
 function dropWeeklyTodo(e,targetDay,targetWsStr){
