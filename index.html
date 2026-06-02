@@ -1236,7 +1236,7 @@ function makeTodoRow(t,orderNum){
     <span style="font-size:11px;color:var(--t2);font-variant-numeric:tabular-nums;min-width:42px;text-align:right">${elapsed>0?fmtHM(elapsed):''}</span>
     <button style="font-size:10px;padding:2px 7px;border-radius:99px;border:0.5px solid var(--b2);background:${t.running?'var(--acc)':'var(--bg2)'};cursor:pointer;font-family:inherit;color:${t.running?'#fff':'var(--t2)'};" onclick="${t.running?'stopTodoTimer()':'startTodoTimer('+t.id+')'}">${t.running?'■':'▶'}</button>
     <button class="edit-btn" onclick="openTodoModal(${t.id})">수정</button>
-    <button class="edit-btn" onclick="copyTodo(${t.id})" title="복사" style="padding:2px 6px">⎘</button>
+    <button class="edit-btn" onclick="copyTodo(${t.id})" title="복사" style="padding:2px 8px;color:var(--t2)">복사</button>
   </div>`;
 }
 
@@ -2276,26 +2276,17 @@ function getWeekStart(offset){
 function isoDate(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
 
 function renderWeekly(){
-  const ws1=getWeekStart(weekOffset);
-  const ws2=getWeekStart(weekOffset+1);
+  const weeks=Array.from({length:weekCount},(_,i)=>getWeekStart(weekOffset+i));
   const fmt=d=>`${d.getMonth()+1}/${d.getDate()}`;
-  const we2=new Date(ws2.getFullYear(),ws2.getMonth(),ws2.getDate()+6);
+  const lastWs=weeks[weeks.length-1];
+  const lastWe=new Date(lastWs.getFullYear(),lastWs.getMonth(),lastWs.getDate()+6);
   const rangeEl=document.getElementById('weekly-range');
-  if(rangeEl)rangeEl.textContent=`${ws1.getFullYear()}년 ${fmt(ws1)} – ${fmt(we2)}`;
+  if(rangeEl)rangeEl.textContent=`${weeks[0].getFullYear()}년 ${fmt(weeks[0])} – ${fmt(lastWe)}`;
   const grid=document.getElementById('weekly-grid');if(!grid)return;
   const normalizeWs=s=>{if(!s)return s;const p=s.split('-');if(p.length!==3)return s;return `${p[0]}-${p[1].padStart(2,'0')}-${p[2].padStart(2,'0')}`;};
-  const days=Array.from({length:14},(_,i)=>{
-    const ws=i<7?ws1:ws2;
-    return new Date(ws.getFullYear(),ws.getMonth(),ws.getDate()+(i%7));
-  });
-  // CSS grid: 14열 (2주 연속)
   grid.style.gridTemplateColumns='repeat(7,1fr)';
-  // 주 구분 레이블
-  const week1Label=`<div style="grid-column:1/-1;font-size:11px;font-weight:500;color:var(--t2);padding:4px 0;border-bottom:1.5px solid var(--acc);margin-bottom:4px">▸ ${ws1.getFullYear()}년 ${ws1.getMonth()+1}월 ${ws1.getDate()}일 주</div>`;
-  const week2Label=`<div style="grid-column:1/-1;font-size:11px;font-weight:500;color:var(--t2);padding:4px 0;border-bottom:1px solid var(--b1);margin-bottom:4px;margin-top:8px">▸ ${ws2.getFullYear()}년 ${ws2.getMonth()+1}월 ${ws2.getDate()}일 주</div>`;
-  const renderDay=(d,i,wsStr)=>{
+  const renderDay=(d,dayIdx,wsStr)=>{
     const dateStr=isoDate(d);
-    const dayIdx=i%7;
     const isToday=isoDate(new Date())===dateStr;
     const dayItems=weeklyTodos
       .filter(t=>t.day===dayIdx&&normalizeWs(t.weekStart)===wsStr)
@@ -2321,12 +2312,13 @@ function renderWeekly(){
       </div>
     </div>`;
   };
-  const ws1Str=isoDate(ws1),ws2Str=isoDate(ws2);
-  grid.innerHTML=
-    week1Label+
-    days.slice(0,7).map((d,i)=>renderDay(d,i,ws1Str)).join('')+
-    week2Label+
-    days.slice(7).map((d,i)=>renderDay(d,i+7,ws2Str)).join('');
+  const ws1Str=isoDate(weeks[0]);
+  grid.innerHTML=weeks.map((ws,wi)=>{
+    const wsStr=isoDate(ws);
+    const weekLabel=`<div style="grid-column:1/-1;font-size:11px;font-weight:500;color:var(--t2);padding:4px 0;border-bottom:${wi===0?'1.5px solid var(--acc)':'1px solid var(--b1)'};margin-bottom:4px${wi>0?';margin-top:8px':''}">▸ ${ws.getFullYear()}년 ${ws.getMonth()+1}월 ${ws.getDate()}일 주</div>`;
+    const days=Array.from({length:7},(_,i)=>new Date(ws.getFullYear(),ws.getMonth(),ws.getDate()+i));
+    return weekLabel+days.map((d,i)=>renderDay(d,i,wsStr)).join('');
+  }).join('');
 }
 
 function changeWeek(dir){weekOffset+=dir*weekCount;renderWeekly();}
