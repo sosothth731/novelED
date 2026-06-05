@@ -1436,8 +1436,8 @@ function saveTodo(){
     const todoObj={id:newId,text,cat,done:false,priority,timerSec:0,timerSecBase:0,running:false,date};
     if(date){
       const d=new Date(date);
-      const dow=d.getDay();
-      const dws=new Date(d);dws.setDate(d.getDate()-d.getDay());dws.setHours(0,0,0,0);
+      const dow=d.getDay()===0?6:d.getDay()-1;
+      const dws=new Date(d);dws.setDate(d.getDate()-(d.getDay()===0?6:d.getDay()-1));dws.setHours(0,0,0,0);
       const weekStartStr=`${dws.getFullYear()}-${String(dws.getMonth()+1).padStart(2,"0")}-${String(dws.getDate()).padStart(2,"0")}`;
       const wtId=newId+1;
       weeklyTodos.push({id:wtId,text,cat,day:dow,weekStart:weekStartStr,done:false,linkedId:newId});
@@ -2266,7 +2266,7 @@ function renderThemes(){const cur=document.body.getAttribute('data-theme');docum
 function setTheme(id){document.body.setAttribute('data-theme',id);save(KEYS.theme,id);renderThemes();}
 
 // ══════ WEEKLY TODO ══════
-const DAY_LABELS=['일','월','화','수','목','금','토'];
+const DAY_LABELS=['월','화','수','목','금','토','일'];
 let weekOffset=0,editingWeeklyId=null,weekCount=2;
 
 function setWeekCount(n){
@@ -2284,7 +2284,7 @@ function setWeekCount(n){
 function getWeekStart(offset){
   const now=new Date();
   const y=now.getFullYear(),m=now.getMonth(),dd=now.getDate();
-  const dow=now.getDay(); // 일=0, 월=1...토=6
+  const dow=now.getDay()===0?6:now.getDay()-1; // 월=0, 화=1...일=6
   // new Date(y,m,d) 방식으로 직접 생성 — 타임존 변환 없음
   return new Date(y,m,dd-dow+(offset*7));
 }
@@ -2445,7 +2445,7 @@ function saveWeeklyTodo(){
     const time=document.getElementById('wt-time-p').value;
     const noOvertime=document.getElementById('wt-no-overtime').checked;
     const dateObj=new Date(dateStr+'T00:00:00');
-    const dow=dateObj.getDay();
+    const dow=dateObj.getDay()===0?6:dateObj.getDay()-1;
     const wsDate=new Date(dateObj.getFullYear(),dateObj.getMonth(),dateObj.getDate()-dow);
     const ws=isoDate(wsDate);
     if(editingWeeklyId){
