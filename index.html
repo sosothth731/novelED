@@ -1436,8 +1436,8 @@ function saveTodo(){
     const todoObj={id:newId,text,cat,done:false,priority,timerSec:0,timerSecBase:0,running:false,date};
     if(date){
       const d=new Date(date);
-      const dow=d.getDay()===0?6:d.getDay()-1;
-      const dws=new Date(d);dws.setDate(d.getDate()-(d.getDay()===0?6:d.getDay()-1));dws.setHours(0,0,0,0);
+      const dow=d.getDay();
+      const dws=new Date(d);dws.setDate(d.getDate()-d.getDay());dws.setHours(0,0,0,0);
       const weekStartStr=`${dws.getFullYear()}-${String(dws.getMonth()+1).padStart(2,"0")}-${String(dws.getDate()).padStart(2,"0")}`;
       const wtId=newId+1;
       weeklyTodos.push({id:wtId,text,cat,day:dow,weekStart:weekStartStr,done:false,linkedId:newId});
@@ -2266,7 +2266,7 @@ function renderThemes(){const cur=document.body.getAttribute('data-theme');docum
 function setTheme(id){document.body.setAttribute('data-theme',id);save(KEYS.theme,id);renderThemes();}
 
 // ══════ WEEKLY TODO ══════
-const DAY_LABELS=['월','화','수','목','금','토','일'];
+const DAY_LABELS=['일','월','화','수','목','금','토'];
 let weekOffset=0,editingWeeklyId=null,weekCount=2;
 
 function setWeekCount(n){
@@ -2284,7 +2284,7 @@ function setWeekCount(n){
 function getWeekStart(offset){
   const now=new Date();
   const y=now.getFullYear(),m=now.getMonth(),dd=now.getDate();
-  const dow=now.getDay()===0?6:now.getDay()-1; // 월=0, 화=1...일=6
+  const dow=now.getDay(); // 일=0, 월=1...토=6
   // new Date(y,m,d) 방식으로 직접 생성 — 타임존 변환 없음
   return new Date(y,m,dd-dow+(offset*7));
 }
@@ -2445,14 +2445,14 @@ function saveWeeklyTodo(){
     const time=document.getElementById('wt-time-p').value;
     const noOvertime=document.getElementById('wt-no-overtime').checked;
     const dateObj=new Date(dateStr+'T00:00:00');
-    const dow=dateObj.getDay()===0?6:dateObj.getDay()-1;
+    const dow=dateObj.getDay();
     const wsDate=new Date(dateObj.getFullYear(),dateObj.getMonth(),dateObj.getDate()-dow);
     const ws=isoDate(wsDate);
     if(editingWeeklyId){
       const wt=weeklyTodos.find(x=>x.id===editingWeeklyId);
-      if(wt){wt.text=text;wt.day=dow;wt.weekStart=ws;wt.type='personal';wt.time=time;wt.noOvertime=noOvertime;wt.date=dateStr;}
+      if(wt){wt.text=text;wt.day=dow;wt.weekStart=ws;wt.type='personal';wt.time=time;wt.noOvertime=noOvertime;wt.date=dateStr;wt._dayBase='sun';}
     } else {
-      weeklyTodos.push({id:Date.now(),text,day:dow,weekStart:ws,done:false,type:'personal',time,noOvertime,date:dateStr});
+      weeklyTodos.push({id:Date.now(),text,day:dow,weekStart:ws,done:false,type:'personal',time,noOvertime,date:dateStr,_dayBase:'sun'});
     }
     save(KEYS.weekly,weeklyTodos);
     const now=new Date();
@@ -2471,11 +2471,11 @@ function saveWeeklyTodo(){
   const ws=isoDate(wsDate);
   if(editingWeeklyId){
     const wt=weeklyTodos.find(x=>x.id===editingWeeklyId);
-    if(wt){wt.text=text;wt.cat=cat;wt.day=dow;wt.weekStart=ws;wt.type='work';}
+    if(wt){wt.text=text;wt.cat=cat;wt.day=dow;wt.weekStart=ws;wt.type='work';wt._dayBase='sun';}
     if(wt&&wt.linkedId){const t=todos.find(x=>x.id===wt.linkedId);if(t){t.text=text;t.cat=cat;t.date=dateStr;}save(KEYS.todos,todos);}
   } else {
     const newId=Date.now();
-    const wtObj={id:newId,text,cat,day:dow,weekStart:ws,done:false,type:'work'};
+    const wtObj={id:newId,text,cat,day:dow,weekStart:ws,done:false,type:'work',_dayBase:'sun'};
     const todoId=newId+1;
     todos.unshift({id:todoId,text,cat,done:false,priority:'med',timerSec:0,timerSecBase:0,running:false,date:dateStr,linkedId:newId});
     wtObj.linkedId=todoId;
@@ -2532,6 +2532,23 @@ function reloadAppData(){
   Object.assign(catSecs,load(KEYS.calSecs,{review:0,edit:0,design:0,secondary:0,comm:0,etc:0}));
   const ws=load(KEYS.weekSecs,null);
   if(ws)weekSecs.splice(0,7,...ws);
+  // ── 기존 위클리 데이터 마이그레이션 (월=0 → 일=0 기준) ──
+  const needsMigration=weeklyTodos.some(t=>t._dayBase!=='sun');
+  if(needsMigration){
+    weeklyTodos=weeklyTodos.map(t=>{
+      if(t._dayBase==='sun')return t;
+      const newDay=(t.day+1)%7; // 월=0→1, 화=1→2, ..., 일=6→0
+      let newWs=t.weekStart;
+      if(t.weekStart){
+        const parts=t.weekStart.split('-');
+        const d=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+        d.setDate(d.getDate()-1); // 월요일→일요일
+        newWs=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      }
+      return {...t,day:newDay,weekStart:newWs,_dayBase:'sun'};
+    });
+    save(KEYS.weekly,weeklyTodos);
+  }
 }
 
 // ══════ INIT ══════
