@@ -654,26 +654,11 @@ localStorage.setItem = function(k, v) {
   <div class="card" style="width:420px;max-width:92vw">
     <div style="font-size:15px;font-weight:500;margin-bottom:1rem" id="weekly-modal-title">위클리 할 일 추가</div>
     <input type="hidden" id="wt-id">
-    <!-- 업무/개인 타입 선택 -->
-    <div style="display:flex;gap:0;margin-bottom:10px;border:0.5px solid var(--b2);border-radius:var(--r);overflow:hidden">
-      <button id="wt-type-work" onclick="setWtType('work')" style="flex:1;font-size:12px;padding:6px 0;border:none;background:var(--acc);color:#fff;cursor:pointer;font-family:inherit">📋 업무</button>
-      <button id="wt-type-personal" onclick="setWtType('personal')" style="flex:1;font-size:12px;padding:6px 0;border:none;background:var(--bg2);color:var(--t2);cursor:pointer;font-family:inherit">🪼 개인</button>
-    </div>
-    <input type="text" id="wt-text" placeholder="내용" style="width:100%;margin-bottom:8px">
-    <div id="wt-work-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+    <input type="text" id="wt-text" placeholder="할 일 내용" style="width:100%;margin-bottom:8px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
       <select id="wt-cat" style="width:100%"><option value="review">리뷰</option><option value="edit">교정</option><option value="design">디자인</option><option value="secondary">2차</option><option value="comm">소통</option><option value="make">제작</option><option value="etc">기타</option></select>
       <input type="date" id="wt-date" style="width:100%">
     </div>
-    <div id="wt-personal-fields" style="display:none;margin-bottom:8px">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">
-        <input type="date" id="wt-date-p" style="width:100%">
-        <input type="time" id="wt-time-p" placeholder="시간 (선택)" style="width:100%">
-      </div>
-      <label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer">
-        <input type="checkbox" id="wt-no-overtime"> 야근 불가
-      </label>
-    </div>
-    <input type="hidden" id="wt-type" value="work">
     <div style="display:flex;gap:8px">
       <button class="btn btn-sm btn-acc" onclick="saveWeeklyTodo()">저장</button>
       <button class="btn btn-sm btn-danger" id="wt-del-btn" style="display:none" onclick="deleteWeeklyTodo()">삭제</button>
@@ -1436,8 +1421,8 @@ function saveTodo(){
     const todoObj={id:newId,text,cat,done:false,priority,timerSec:0,timerSecBase:0,running:false,date};
     if(date){
       const d=new Date(date);
-      const dow=d.getDay();
-      const dws=new Date(d);dws.setDate(d.getDate()-d.getDay());dws.setHours(0,0,0,0);
+      const dow=d.getDay()===0?6:d.getDay()-1;
+      const dws=new Date(d);dws.setDate(d.getDate()-(d.getDay()===0?6:d.getDay()-1));dws.setHours(0,0,0,0);
       const weekStartStr=`${dws.getFullYear()}-${String(dws.getMonth()+1).padStart(2,"0")}-${String(dws.getDate()).padStart(2,"0")}`;
       const wtId=newId+1;
       weeklyTodos.push({id:wtId,text,cat,day:dow,weekStart:weekStartStr,done:false,linkedId:newId});
@@ -2266,7 +2251,7 @@ function renderThemes(){const cur=document.body.getAttribute('data-theme');docum
 function setTheme(id){document.body.setAttribute('data-theme',id);save(KEYS.theme,id);renderThemes();}
 
 // ══════ WEEKLY TODO ══════
-const DAY_LABELS=['일','월','화','수','목','금','토'];
+const DAY_LABELS=['월','화','수','목','금','토','일'];
 let weekOffset=0,editingWeeklyId=null,weekCount=2;
 
 function setWeekCount(n){
@@ -2284,7 +2269,7 @@ function setWeekCount(n){
 function getWeekStart(offset){
   const now=new Date();
   const y=now.getFullYear(),m=now.getMonth(),dd=now.getDate();
-  const dow=now.getDay(); // 일=0, 월=1...토=6
+  const dow=now.getDay()===0?6:now.getDay()-1; // 월=0, 화=1...일=6
   // new Date(y,m,d) 방식으로 직접 생성 — 타임존 변환 없음
   return new Date(y,m,dd-dow+(offset*7));
 }
@@ -2303,40 +2288,27 @@ function renderWeekly(){
   const renderDay=(d,dayIdx,wsStr)=>{
     const dateStr=isoDate(d);
     const isToday=isoDate(new Date())===dateStr;
-    const allItems=weeklyTodos.filter(t=>t.day===dayIdx&&normalizeWs(t.weekStart)===wsStr);
-    const personalItems=allItems.filter(t=>t.type==='personal');
-    const dayItems=allItems.filter(t=>t.type!=='personal').sort((a,b)=>a.done===b.done?0:a.done?1:-1);
-    // 개인일정 배너
-    const bannerHtml=personalItems.length?personalItems.map(p=>{
-      const bg=p.noOvertime?'#fef3c7':p.done?'#f3f4f6':'#fce7f3';
-      const tc=p.noOvertime?'#92400e':p.done?'#9ca3af':'#be185d';
-      const label=`${p.noOvertime?'⚠ ':'🪼 '}${p.text}${p.time?' · '+p.time:''}`;
-      return`<div style="background:${bg};color:${tc};font-size:10px;padding:3px 8px;font-weight:500;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="openWeeklyModal(${p.id},${dayIdx})">${label}<span style="opacity:.5;font-size:9px">수정</span></div>`;
-    }).join(''):'';
-    return`<div style="background:var(--bg1);border:${isToday?'1.5px solid var(--acc)':'0.5px solid var(--b1)'};border-radius:var(--rl);overflow:hidden"
+    const dayItems=weeklyTodos
+      .filter(t=>t.day===dayIdx&&normalizeWs(t.weekStart)===wsStr)
+      .sort((a,b)=>a.done===b.done?0:a.done?1:-1);
+    return`<div style="background:var(--bg1);border:${isToday?'1.5px solid var(--acc)':'0.5px solid var(--b1)'};border-radius:var(--rl);padding:.75rem;min-height:80px"
       ondragover="event.preventDefault();this.style.background='var(--bg2)'"
       ondragleave="this.style.background='var(--bg1)'"
       ondrop="dropWeeklyTodo(event,${dayIdx},'${wsStr}');this.style.background='var(--bg1)'">
-      ${bannerHtml}
-      <div style="padding:.75rem;min-height:80px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.625rem">
-          <div>
-            <div style="font-size:12px;font-weight:500;color:${isToday?'var(--acc)':'var(--t1)'}">${DAY_LABELS[dayIdx]}</div>
-            <div style="font-size:11px;color:var(--t2)">${fmt(d)}</div>
-          </div>
-          <div style="display:flex;gap:3px">
-            <button class="edit-btn" onclick="openWeeklyModalPersonal('${dateStr}')" style="padding:1px 6px;font-size:10px;color:#be185d">🪼</button>
-            <button class="edit-btn" onclick="openWeeklyModalOnDate('${dateStr}')" style="padding:1px 7px">+</button>
-          </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.625rem">
+        <div>
+          <div style="font-size:12px;font-weight:500;color:${isToday?'var(--acc)':'var(--t1)'}">${DAY_LABELS[dayIdx]}</div>
+          <div style="font-size:11px;color:var(--t2)">${fmt(d)}</div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:4px">
-          ${dayItems.length?dayItems.map(t=>`<div draggable="true" ondragstart="dragWeeklyTodo(event,${t.id})" style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:grab">
-            <input type="checkbox" ${t.done?'checked':''} onchange="toggleWeeklyTodo(${t.id})" style="width:13px;height:13px">
-            <span class="badge ${catColors[t.cat]||'badge-gray'}" style="font-size:10px;padding:1px 5px">${catLabels[t.cat]||t.cat}</span>
-            <span style="flex:1;${t.done?'text-decoration:line-through;color:var(--t2)':''}">${t.text}</span>
-            <button class="edit-btn" onclick="openWeeklyModal(${t.id},0)" style="padding:1px 6px;font-size:10px">수정</button>
-          </div>`).join(''):'<div style="font-size:11px;color:var(--t2)">없음</div>'}
-        </div>
+        <button class="edit-btn" onclick="openWeeklyModalOnDate('${dateStr}')" style="padding:1px 7px">+</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        ${dayItems.length?dayItems.map(t=>`<div draggable="true" ondragstart="dragWeeklyTodo(event,${t.id})" style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:grab">
+          <input type="checkbox" ${t.done?'checked':''} onchange="toggleWeeklyTodo(${t.id})" style="width:13px;height:13px">
+          <span class="badge ${catColors[t.cat]||'badge-gray'}" style="font-size:10px;padding:1px 5px">${catLabels[t.cat]||t.cat}</span>
+          <span style="flex:1;${t.done?'text-decoration:line-through;color:var(--t2)':''}">${t.text}</span>
+          <button class="edit-btn" onclick="openWeeklyModal(${t.id},0)" style="padding:1px 6px;font-size:10px">수정</button>
+        </div>`).join(''):'<div style="font-size:11px;color:var(--t2)">없음</div>'}
       </div>
     </div>`;
   };
@@ -2370,19 +2342,6 @@ function dropWeeklyTodo(e,targetDay,targetWsStr){
   save(KEYS.weekly,weeklyTodos);renderWeekly();
 }
 // 날짜 지정해서 모달 열기 (+ 버튼에서 호출)
-function openWeeklyModalPersonal(dateStr){
-  editingWeeklyId=null;
-  document.getElementById('weekly-modal-title').textContent='개인 일정 추가';
-  document.getElementById('wt-id').value='';
-  document.getElementById('wt-text').value='';
-  document.getElementById('wt-date-p').value=dateStr;
-  document.getElementById('wt-time-p').value='';
-  document.getElementById('wt-no-overtime').checked=false;
-  document.getElementById('wt-del-btn').style.display='none';
-  setWtType('personal');
-  document.getElementById('weekly-modal').style.display='flex';
-  setTimeout(()=>document.getElementById('wt-text').focus(),50);
-}
 function openWeeklyModalOnDate(dateStr){
   editingWeeklyId=null;
   document.getElementById('weekly-modal-title').textContent='위클리 할 일 추가';
@@ -2413,69 +2372,35 @@ function openWeeklyModal(id,defaultDay=0){
     document.getElementById('wt-date').value=isoDate(defDate);
   }
   document.getElementById('wt-del-btn').style.display=id?'inline-block':'none';
-  // 타입 초기화
-  const type=(t&&t.type)?t.type:'work';
-  setWtType(type);
-  if(type==='personal'){
-    document.getElementById('wt-date-p').value=t.date||'';
-    document.getElementById('wt-time-p').value=t.time||'';
-    document.getElementById('wt-no-overtime').checked=t.noOvertime||false;
-  }
   document.getElementById('weekly-modal').style.display='flex';
   setTimeout(()=>document.getElementById('wt-text').focus(),50);
-}
-function setWtType(type){
-  document.getElementById('wt-type').value=type;
-  const isWork=type==='work';
-  document.getElementById('wt-work-fields').style.display=isWork?'grid':'none';
-  document.getElementById('wt-personal-fields').style.display=isWork?'none':'block';
-  document.getElementById('wt-type-work').style.background=isWork?'var(--acc)':'var(--bg2)';
-  document.getElementById('wt-type-work').style.color=isWork?'#fff':'var(--t2)';
-  document.getElementById('wt-type-personal').style.background=isWork?'var(--bg2)':'#fce7f3';
-  document.getElementById('wt-type-personal').style.color=isWork?'var(--t2)':'#be185d';
 }
 function closeWeeklyModal(){document.getElementById('weekly-modal').style.display='none';editingWeeklyId=null;}
 function saveWeeklyTodo(){
   const text=document.getElementById('wt-text').value.trim();if(!text)return;
-  const type=document.getElementById('wt-type').value;
-
-  if(type==='personal'){
-    // 개인 일정 저장
-    const dateStr=document.getElementById('wt-date-p').value;if(!dateStr)return;
-    const time=document.getElementById('wt-time-p').value;
-    const noOvertime=document.getElementById('wt-no-overtime').checked;
-    const dateObj=new Date(dateStr+'T00:00:00');
-    const dow=dateObj.getDay();
-    const wsDate=new Date(dateObj.getFullYear(),dateObj.getMonth(),dateObj.getDate()-dow);
-    const ws=isoDate(wsDate);
-    if(editingWeeklyId){
-      const wt=weeklyTodos.find(x=>x.id===editingWeeklyId);
-      if(wt){wt.text=text;wt.day=dow;wt.weekStart=ws;wt.type='personal';wt.time=time;wt.noOvertime=noOvertime;wt.date=dateStr;wt._dayBase='sun';}
-    } else {
-      weeklyTodos.push({id:Date.now(),text,day:dow,weekStart:ws,done:false,type:'personal',time,noOvertime,date:dateStr,_dayBase:'sun'});
-    }
-    save(KEYS.weekly,weeklyTodos);
-    const now=new Date();
-    const nowDow=now.getDay();
-    const thisWs=new Date(now.getFullYear(),now.getMonth(),now.getDate()-nowDow);
-    weekOffset=Math.round((wsDate-thisWs)/(7*864e5));
-    renderWeekly();closeWeeklyModal();return;
-  }
-
   const cat=document.getElementById('wt-cat').value;
   const dateStr=document.getElementById('wt-date').value;
   if(!dateStr)return;
+  // 날짜에서 요일(0=월~6=일) 계산
   const dateObj=new Date(dateStr+'T00:00:00');
-  const dow=dateObj.getDay();
+  const dow=dateObj.getDay()===0?6:dateObj.getDay()-1;
+  // 해당 날짜의 주 시작(월요일) 계산
   const wsDate=new Date(dateObj.getFullYear(),dateObj.getMonth(),dateObj.getDate()-dow);
   const ws=isoDate(wsDate);
+
   if(editingWeeklyId){
     const wt=weeklyTodos.find(x=>x.id===editingWeeklyId);
-    if(wt){wt.text=text;wt.cat=cat;wt.day=dow;wt.weekStart=ws;wt.type='work';wt._dayBase='sun';}
-    if(wt&&wt.linkedId){const t=todos.find(x=>x.id===wt.linkedId);if(t){t.text=text;t.cat=cat;t.date=dateStr;}save(KEYS.todos,todos);}
+    if(wt){wt.text=text;wt.cat=cat;wt.day=dow;wt.weekStart=ws;}
+    // 연동된 데일리 투두 업데이트
+    if(wt&&wt.linkedId){
+      const t=todos.find(x=>x.id===wt.linkedId);
+      if(t){t.text=text;t.cat=cat;t.date=dateStr;}
+      save(KEYS.todos,todos);
+    }
   } else {
     const newId=Date.now();
-    const wtObj={id:newId,text,cat,day:dow,weekStart:ws,done:false,type:'work',_dayBase:'sun'};
+    const wtObj={id:newId,text,cat,day:dow,weekStart:ws,done:false};
+    // 데일리 투두에도 자동 추가 (linkedId로 연결)
     const todoId=newId+1;
     todos.unshift({id:todoId,text,cat,done:false,priority:'med',timerSec:0,timerSecBase:0,running:false,date:dateStr,linkedId:newId});
     wtObj.linkedId=todoId;
@@ -2483,10 +2408,12 @@ function saveWeeklyTodo(){
     save(KEYS.todos,todos);
   }
   save(KEYS.weekly,weeklyTodos);
+  // weekOffset을 해당 날짜의 주로 이동
   const now=new Date();now.setHours(0,0,0,0);
-  const nowDow=now.getDay();
+  const nowDow=now.getDay()===0?6:now.getDay()-1;
   const thisWs=new Date(now.getFullYear(),now.getMonth(),now.getDate()-nowDow);
-  weekOffset=Math.round((wsDate-thisWs)/(7*864e5));
+  const diffMs=wsDate-thisWs;
+  weekOffset=Math.round(diffMs/(7*864e5));
   renderWeekly();renderTodos();renderCalendar();closeWeeklyModal();
 }
 function deleteWeeklyTodo(){
@@ -2532,23 +2459,6 @@ function reloadAppData(){
   Object.assign(catSecs,load(KEYS.calSecs,{review:0,edit:0,design:0,secondary:0,comm:0,etc:0}));
   const ws=load(KEYS.weekSecs,null);
   if(ws)weekSecs.splice(0,7,...ws);
-  // ── 기존 위클리 데이터 마이그레이션 (월=0 → 일=0 기준) ──
-  const needsMigration=weeklyTodos.some(t=>t._dayBase!=='sun');
-  if(needsMigration){
-    weeklyTodos=weeklyTodos.map(t=>{
-      if(t._dayBase==='sun')return t;
-      const newDay=(t.day+1)%7; // 월=0→1, 화=1→2, ..., 일=6→0
-      let newWs=t.weekStart;
-      if(t.weekStart){
-        const parts=t.weekStart.split('-');
-        const d=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
-        d.setDate(d.getDate()-1); // 월요일→일요일
-        newWs=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      }
-      return {...t,day:newDay,weekStart:newWs,_dayBase:'sun'};
-    });
-    save(KEYS.weekly,weeklyTodos);
-  }
 }
 
 // ══════ INIT ══════
