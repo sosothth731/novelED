@@ -1259,20 +1259,18 @@ function copyTodo(id){
   const t=todos.find(x=>x.id===id);if(!t)return;
   const today=new Date();
   const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-  const copy={
-    id:Date.now(),
-    text:t.text,
-    cat:t.cat,
-    done:false,
-    priority:t.priority,
-    timerSec:0,timerSecBase:0,running:false,
-    date:todayStr,
-    manualOrder:null
-  };
-  // 원본 바로 아래에 삽입
+  const newId=Date.now();
+  const copy={id:newId,text:t.text,cat:t.cat,done:false,priority:t.priority,timerSec:0,timerSecBase:0,running:false,date:todayStr,manualOrder:null};
+  // 위클리 연동
+  const dow=today.getDay();
+  const wsDate=new Date(today.getFullYear(),today.getMonth(),today.getDate()-dow);
+  const ws=isoDate(wsDate);
+  const wtId=newId+1;
+  weeklyTodos.push({id:wtId,text:t.text,cat:t.cat,day:dow,weekStart:ws,done:false,type:'work',_dayBase:'sun',linkedId:newId});
+  copy.linkedId=wtId;
   const idx=todos.findIndex(x=>x.id===id);
   todos.splice(idx+1,0,copy);
-  save(KEYS.todos,todos);renderTodos();
+  save(KEYS.todos,todos);save(KEYS.weekly,weeklyTodos);renderTodos();renderWeekly();
 }
 function reorderTodo(targetId){
   if(draggingTodoId===null||draggingTodoId===targetId)return;
@@ -2537,12 +2535,15 @@ function reloadAppData(){
   if(needsMigration){
     weeklyTodos=weeklyTodos.map(t=>{
       if(t._dayBase==='sun')return t;
-      const newDay=(t.day+1)%7; // 월=0→1, 화=1→2, ..., 일=6→0
+      const newDay=(t.day+1)%7; // 월=0→1, 화=1→2, ..., 토=5→6, 일=6→0
       let newWs=t.weekStart;
       if(t.weekStart){
         const parts=t.weekStart.split('-');
         const d=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
-        d.setDate(d.getDate()-1); // 월요일→일요일
+        // 월요일 weekStart → 일요일 weekStart: 하루 앞당김
+        // 단, 기존 일요일(day=6) 항목은 이미 해당 주 월요일에 속했으므로
+        // 일요일로 변환 시 그 주 일요일 = 월요일 -1일
+        d.setDate(d.getDate()-1);
         newWs=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       }
       return {...t,day:newDay,weekStart:newWs,_dayBase:'sun'};
@@ -2601,6 +2602,9 @@ function init(){
   renderDeadlineDash();renderWeekChart();renderWeekly();renderTimeSchedule();syncTimerDisplays();
 }
 // Firebase onAuthStateChanged가 pull 완료 후 init()을 호출
+window.addEventListener('beforeunload',()=>{
+  if(typeof activeTimerId!=='undefined'&&activeTimerId!==null)stopTodoTimer();
+});
 // 3초 내 Firebase 응답 없으면 로컬 데이터로 자동 실행
 window._fbInitDone = false;
 setTimeout(()=>{
