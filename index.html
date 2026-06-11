@@ -1521,8 +1521,10 @@ function openWorkModal(id){
   document.getElementById('wm-genre').value=w?w.genre:'g-romance';
   document.getElementById('wm-stage').value=w?w.stage:'심사고';
   document.getElementById('wm-platform').value=w?w.platform:'리디';
-  document.getElementById('wm-deadline').value=w?w.deadline:'';
-  document.getElementById('wm-pubdate').value=w?w.pubdate||'':'';
+// 출간일정표와 연동: 프로모션 값 우선순위 = 작품 자체 > 일정표
+const linkedSched = schedPub.find(s => s.title === (w ? w.title : ''));
+document.getElementById('wm-deadline').value = w ? (w.deadline || (linkedSched ? linkedSched.promo : '') || '') : '';
+document.getElementById('wm-pubdate').value = w ? (w.pubdate || (linkedSched ? linkedSched.date : '') || '') : '';
   document.getElementById('wm-del-btn').style.display=id?'inline-block':'none';
   document.getElementById('work-modal').style.display='flex';
 }
@@ -1536,14 +1538,20 @@ function saveWork(){
   const obj={title,author,genre,gLabel:genreLabels[genre]||'',stage:document.getElementById('wm-stage').value,platform,deadline:document.getElementById('wm-deadline').value,pubdate};
   if(editingWorkId){const w=works.find(x=>x.id===editingWorkId);if(w)Object.assign(w,obj);}
   else{works.push({id:Date.now(),...obj});}
-  // 출간일 기입 시 출간 일정표 자동 연동
-  if(pubdate){
-    const existIdx=schedPub.findIndex(s=>s.title===title);
-    const schedObj={title,author,platform,date:pubdate,stage:document.getElementById('wm-stage').value,promo:'-',note:''};
-    if(existIdx>=0)Object.assign(schedPub[existIdx],schedObj);
-    else schedPub.unshift({id:Date.now()+1,...schedObj});
-    save(KEYS.schedPub,schedPub);
-  }
+const promoVal = document.getElementById('wm-deadline').value || '-';
+if(pubdate || promoVal !== '-'){
+    const existIdx = schedPub.findIndex(s => s.title === title);
+    const schedObj = {
+        title, author, platform,
+        date: pubdate || (existIdx >= 0 ? schedPub[existIdx].date : ''),
+        stage: document.getElementById('wm-stage').value,
+        promo: promoVal,
+        note: existIdx >= 0 ? schedPub[existIdx].note : ''
+    };
+    if(existIdx >= 0) Object.assign(schedPub[existIdx], schedObj);
+    else if(pubdate) schedPub.unshift({id: Date.now()+1, ...schedObj});
+    save(KEYS.schedPub, schedPub);
+}
   save(KEYS.works,works);
   // 단계='출간'이면 독점 정보 시트에 자동 추가 (없는 경우만)
   const stg=document.getElementById('wm-stage').value;
@@ -1839,9 +1847,16 @@ function closeSchedModal(){document.getElementById('sched-modal').style.display=
 function saveSched(){
   const title=document.getElementById('sm-title').value.trim();if(!title)return;
   const obj={title,author:document.getElementById('sm-author').value,platform:document.getElementById('sm-platform').value,date:document.getElementById('sm-date').value,stage:document.getElementById('sm-stage').value,promo:document.getElementById('sm-promo').value||'-',note:document.getElementById('sm-note').value};
-  if(editingSchedId){const s=schedPub.find(x=>x.id===editingSchedId);if(s)Object.assign(s,obj);}
+if(editingSchedId){const s=schedPub.find(x=>x.id===editingSchedId);if(s)Object.assign(s,obj);}
   else{schedPub.unshift({id:Date.now(),...obj});}
   save(KEYS.schedPub,schedPub);
+  // 역방향: 같은 제목의 작품에 출간일·프로모션 반영
+  const linkedWork = works.find(w => w.title === obj.title);
+  if(linkedWork){
+    if(obj.date) linkedWork.pubdate = obj.date;
+    if(obj.promo && obj.promo !== '-') linkedWork.deadline = obj.promo;
+    save(KEYS.works, works);
+  }
   // 단계='출간'이면 독점 정보 시트 자동 추가
   if(obj.stage==='출간'&&obj.date&&!exclusives.find(e=>e.title===obj.title)){
     exclusives.unshift({id:Date.now()+2,title:obj.title,author:obj.author,platform:obj.platform,launch:obj.date,e1s:obj.date,e1e:'',plat2:'',e2s:'',e2e:'',cost:0,note:'자동추가'});
