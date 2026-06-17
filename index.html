@@ -1324,15 +1324,18 @@ function renderTodos(){
     return d>todayStart;
   });
 
-  // 정렬: manualOrder 있으면 우선, 없으면 자동 정렬
+  // 정렬: 완료여부 → 중요도(HIGH 최우선) → manualOrder(드래그 순서) → 마감일
   const sortFn=(a,b)=>{
     if(a.done!==b.done)return a.done?1:-1;
-    // 수동 순서 우선
+    // HIGH 우선순위는 항상 최상단
+    const aHigh=a.priority==='high', bHigh=b.priority==='high';
+    if(aHigh!==bHigh)return aHigh?-1:1;
+    // 같은 우선순위 그룹 내에서는 수동 순서(드래그) 우선
     const aHas=a.manualOrder!=null, bHas=b.manualOrder!=null;
     if(aHas&&bHas)return a.manualOrder-b.manualOrder;
     if(aHas)return -1;
     if(bHas)return 1;
-    // 자동: 마감임박 → 중요도
+    // 자동: 마감임박 → 중요도(med/low)
     const getD=t=>{if(!t.date)return Infinity;const d=new Date(t.date);d.setHours(0,0,0,0);return d-todayStart;};
     const da=getD(a),db=getD(b);
     if(da!==db)return da-db;
@@ -1428,7 +1431,29 @@ function saveTodo(){
   if(editingTodoId){
     const t=todos.find(x=>x.id===editingTodoId);
     if(t){t.text=text;t.cat=cat;t.priority=priority;t.date=date;}
-    if(t&&t.linkedId){const wt=weeklyTodos.find(x=>x.id===t.linkedId);if(wt){wt.text=text;wt.cat=cat;}save(KEYS.weekly,weeklyTodos);}
+    if(t){
+      if(date){
+        // 날짜가 있는 경우: 위클리 항목이 있으면 갱신, 없으면(또는 유실됐으면) 새로 생성
+        const d=new Date(date);
+        const dow=d.getDay();
+        const dws=new Date(d);dws.setDate(d.getDate()-d.getDay());dws.setHours(0,0,0,0);
+        const weekStartStr=`${dws.getFullYear()}-${String(dws.getMonth()+1).padStart(2,"0")}-${String(dws.getDate()).padStart(2,"0")}`;
+        let wt=t.linkedId?weeklyTodos.find(x=>x.id===t.linkedId):null;
+        if(wt){
+          wt.text=text;wt.cat=cat;wt.day=dow;wt.weekStart=weekStartStr;wt.type='work';wt._dayBase='sun';
+        } else {
+          // linkedId가 없거나, 있었지만 실제 항목이 사라진 경우 → 새로 생성
+          const wtId=Date.now()+1;
+          weeklyTodos.push({id:wtId,text,cat,day:dow,weekStart:weekStartStr,done:t.done,type:'work',_dayBase:'sun',linkedId:editingTodoId});
+          t.linkedId=wtId;
+        }
+      } else if(t.linkedId){
+        // 날짜를 지운 경우: 연결된 위클리 항목 제거하고 연결 해제
+        weeklyTodos=weeklyTodos.filter(x=>x.id!==t.linkedId);
+        t.linkedId=null;
+      }
+      save(KEYS.weekly,weeklyTodos);
+    }
   } else {
     const newId=Date.now();
     const todoObj={id:newId,text,cat,done:false,priority,timerSec:0,timerSecBase:0,running:false,date};
@@ -1503,7 +1528,13 @@ function renderWorks(){
 function dragWork(e,id){dragId=id;}
 function dropWork(e,stage){
   e.preventDefault();document.querySelectorAll('.kanban-col').forEach(c=>c.classList.remove('drag-over'));
-  const w=works.find(x=>x.id===dragId);if(w){w.stage=stage;save(KEYS.works,works);}
+  const w=works.find(x=>x.id===dragId);
+  if(w){
+    w.stage=stage;save(KEYS.works,works);
+    // 칸반 드래그로 단계 이동 시에도 출간 일정표에 즉시 반영
+    const linkedSched=schedPub.find(s=>s.title===w.title);
+    if(linkedSched){linkedSched.stage=stage;save(KEYS.schedPub,schedPub);renderSchedule();}
+  }
   dragId=null;renderWorks();
 }
 function toggleView(v){
@@ -1526,6 +1557,7 @@ const linkedSched = schedPub.find(s => s.title === (w ? w.title : ''));
 document.getElementById('wm-deadline').value = w ? (w.deadline || (linkedSched ? linkedSched.promo : '') || '') : '';
 document.getElementById('wm-pubdate').value = w ? (w.pubdate || (linkedSched ? linkedSched.date : '') || '') : '';
   document.getElementById('wm-del-btn').style.display=id?'inline-block':'none';
+  window._wmOrigTitle = w ? w.title : '';
   document.getElementById('work-modal').style.display='flex';
 }
 function closeWorkModal(){document.getElementById('work-modal').style.display='none';editingWorkId=null;}
@@ -1538,24 +1570,29 @@ function saveWork(){
   const obj={title,author,genre,gLabel:genreLabels[genre]||'',stage:document.getElementById('wm-stage').value,platform,deadline:document.getElementById('wm-deadline').value,pubdate};
   if(editingWorkId){const w=works.find(x=>x.id===editingWorkId);if(w)Object.assign(w,obj);}
   else{works.push({id:Date.now(),...obj});}
-const promoVal = document.getElementById('wm-deadline').value || '-';
-if(pubdate || promoVal !== '-'){
-    const existIdx = schedPub.findIndex(s => s.title === title);
-    const schedObj = {
-        title, author, platform,
-        date: pubdate || (existIdx >= 0 ? schedPub[existIdx].date : ''),
-        stage: document.getElementById('wm-stage').value,
-        promo: promoVal,
-        note: existIdx >= 0 ? schedPub[existIdx].note : ''
-    };
-    if(existIdx >= 0) Object.assign(schedPub[existIdx], schedObj);
-    else if(pubdate) schedPub.unshift({id: Date.now()+1, ...schedObj});
-    save(KEYS.schedPub, schedPub);
-}
   save(KEYS.works,works);
+
+  // 출간일정표 연동: 출간일 / 프로모션 / 단계 / 제목변경 모두 반영
+  const promoVal=document.getElementById('wm-deadline').value||'-';
+  const stageVal=document.getElementById('wm-stage').value;
+  const origTitle=window._wmOrigTitle||title; // 수정 전 제목 (없으면 현재 제목 = 신규 등록)
+  const existSchedIdx=schedPub.findIndex(s=>s.title===origTitle);
+  if(pubdate||promoVal!=='-'||existSchedIdx>=0){
+    const schedObj={
+      title,author,platform,
+      date:pubdate||(existSchedIdx>=0?schedPub[existSchedIdx].date:''),
+      stage:stageVal,
+      promo:promoVal,
+      note:existSchedIdx>=0?schedPub[existSchedIdx].note:''
+    };
+    if(existSchedIdx>=0)Object.assign(schedPub[existSchedIdx],schedObj); // title도 새 값으로 갱신됨
+    else if(pubdate)schedPub.unshift({id:Date.now()+1,...schedObj});
+    save(KEYS.schedPub,schedPub);
+  }
+  window._wmOrigTitle='';
+
   // 단계='출간'이면 독점 정보 시트에 자동 추가 (없는 경우만)
-  const stg=document.getElementById('wm-stage').value;
-  if(stg==='출간'&&pubdate&&!exclusives.find(e=>e.title===title)){
+  if(stageVal==='출간'&&pubdate&&!exclusives.find(e=>e.title===title)){
     exclusives.unshift({id:Date.now()+2,title,author,platform,launch:pubdate,e1s:pubdate,e1e:'',plat2:'',e2s:'',e2e:'',cost:0,note:'자동추가'});
     save(KEYS.exclusives,exclusives);
   }
@@ -1841,6 +1878,7 @@ function openSchedModal(id){
   document.getElementById('sm-promo').value=s?s.promo:'';
   document.getElementById('sm-note').value=s?s.note:'';
   document.getElementById('sm-del-btn').style.display=id?'inline-block':'none';
+  window._smOrigTitle = s ? s.title : '';
   document.getElementById('sched-modal').style.display='flex';
 }
 function closeSchedModal(){document.getElementById('sched-modal').style.display='none';editingSchedId=null;}
@@ -1850,13 +1888,18 @@ function saveSched(){
 if(editingSchedId){const s=schedPub.find(x=>x.id===editingSchedId);if(s)Object.assign(s,obj);}
   else{schedPub.unshift({id:Date.now(),...obj});}
   save(KEYS.schedPub,schedPub);
-  // 역방향: 같은 제목의 작품에 출간일·프로모션 반영
-  const linkedWork = works.find(w => w.title === obj.title);
+  // 역방향: 같은 작품(수정 전 제목 기준 매칭)에 출간일·프로모션·단계·제목 반영
+  const origTitleS = window._smOrigTitle || obj.title;
+  const linkedWork = works.find(w => w.title === origTitleS);
   if(linkedWork){
+    linkedWork.title = obj.title; // 제목 변경분 반영
     if(obj.date) linkedWork.pubdate = obj.date;
     if(obj.promo && obj.promo !== '-') linkedWork.deadline = obj.promo;
+    if(obj.stage) linkedWork.stage = obj.stage;
     save(KEYS.works, works);
+    renderWorks();
   }
+  window._smOrigTitle = '';
   // 단계='출간'이면 독점 정보 시트 자동 추가
   if(obj.stage==='출간'&&obj.date&&!exclusives.find(e=>e.title===obj.title)){
     exclusives.unshift({id:Date.now()+2,title:obj.title,author:obj.author,platform:obj.platform,launch:obj.date,e1s:obj.date,e1e:'',plat2:'',e2s:'',e2e:'',cost:0,note:'자동추가'});
@@ -2485,7 +2528,18 @@ function saveWeeklyTodo(){
   if(editingWeeklyId){
     const wt=weeklyTodos.find(x=>x.id===editingWeeklyId);
     if(wt){wt.text=text;wt.cat=cat;wt.day=dow;wt.weekStart=ws;wt.type='work';wt._dayBase='sun';}
-    if(wt&&wt.linkedId){const t=todos.find(x=>x.id===wt.linkedId);if(t){t.text=text;t.cat=cat;t.date=dateStr;}save(KEYS.todos,todos);}
+    if(wt){
+      let t=wt.linkedId?todos.find(x=>x.id===wt.linkedId):null;
+      if(t){
+        t.text=text;t.cat=cat;t.date=dateStr;
+      } else {
+        // linkedId가 없거나, 있었지만 실제 데일리 항목이 사라진 경우 → 새로 생성
+        const todoId=Date.now()+1;
+        todos.unshift({id:todoId,text,cat,done:wt.done,priority:'med',timerSec:0,timerSecBase:0,running:false,date:dateStr,linkedId:editingWeeklyId});
+        wt.linkedId=todoId;
+      }
+      save(KEYS.todos,todos);
+    }
   } else {
     const newId=Date.now();
     const wtObj={id:newId,text,cat,day:dow,weekStart:ws,done:false,type:'work',_dayBase:'sun'};
