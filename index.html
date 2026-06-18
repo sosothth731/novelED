@@ -335,6 +335,7 @@ async function pullFromFirestore(uid) {
         if (d[k] !== undefined) localStorage.setItem(k, JSON.stringify(d[k]));
       });
       window._pulling = false;
+      window._lastPulledUpdated = d._updated || Date.now();
     }
   } catch(e) { console.warn('Firestore pull 실패:', e); }
 }
@@ -359,6 +360,34 @@ async function pushToFirestore(uid) {
                   'ned_weeksecs','ned_lastweek',
                   'ned_catsecs','ned_totalsec'];
     // ned_timeblocks, ned_lastdate는 기기별 독립 관리 — Firestore 제외
+
+    // ── 충돌 방지: push 직전에 서버의 최신 _updated를 확인 ──
+    // 이 탭이 마지막으로 pull한 시점 이후 다른 기기가 먼저 저장했다면,
+    // 이 탭의 (오래된) localStorage로 덮어쓰지 않고 먼저 최신 데이터를 반영한다.
+    const docRef = doc(db, 'users', uid, 'data', 'main');
+    const remoteSnap = await getDoc(docRef);
+    if (remoteSnap.exists()) {
+      const remote = remoteSnap.data();
+      const remoteUpdated = remote._updated || 0;
+      const lastKnown = window._lastPulledUpdated || 0;
+      if (remoteUpdated > lastKnown) {
+        // 다른 기기가 더 최근에 저장했음 → 이 탭의 stale 데이터로 덮어쓰지 않고
+        // 먼저 원격 데이터를 localStorage에 반영한 뒤 앱 변수를 갱신한다.
+        window._pulling = true;
+        keys.forEach(k => {
+          if (remote[k] !== undefined) localStorage.setItem(k, JSON.stringify(remote[k]));
+        });
+        window._pulling = false;
+        window._lastPulledUpdated = remoteUpdated;
+        if (typeof reloadAppData === 'function') reloadAppData();
+        if (typeof renderWeekly === 'function') renderWeekly();
+        if (typeof renderTodos === 'function') renderTodos();
+        if (badge) { badge.textContent = '☁ 최신 데이터로 갱신됨'; badge.style.color = 'var(--a2)'; }
+        // 이번 push는 건너뛴다 — 다음 변경사항이 생기면 그때 다시 push된다
+        return;
+      }
+    }
+
     const data = {};
     keys.forEach(k => {
       const v = localStorage.getItem(k);
@@ -367,7 +396,8 @@ async function pushToFirestore(uid) {
       }
     });
     data._updated = Date.now();
-    await setDoc(doc(db, 'users', uid, 'data', 'main'), data);
+    await setDoc(docRef, data);
+    window._lastPulledUpdated = data._updated;
     if (badge) { badge.textContent = '☁ 저장됨'; badge.style.color = 'var(--a3)'; }
   } catch(e) {
     console.warn('Firestore push 실패:', e);
@@ -1463,7 +1493,7 @@ function saveTodo(){
       const dws=new Date(d);dws.setDate(d.getDate()-d.getDay());dws.setHours(0,0,0,0);
       const weekStartStr=`${dws.getFullYear()}-${String(dws.getMonth()+1).padStart(2,"0")}-${String(dws.getDate()).padStart(2,"0")}`;
       const wtId=newId+1;
-      weeklyTodos.push({id:wtId,text,cat,day:dow,weekStart:weekStartStr,done:false,linkedId:newId});
+      weeklyTodos.push({id:wtId,text,cat,day:dow,weekStart:weekStartStr,done:false,type:'work',_dayBase:'sun',linkedId:newId});
       todoObj.linkedId=wtId;
       save(KEYS.weekly,weeklyTodos);
     }
@@ -2599,25 +2629,29 @@ function reloadAppData(){
   Object.assign(catSecs,load(KEYS.calSecs,{review:0,edit:0,design:0,secondary:0,comm:0,etc:0}));
   const ws=load(KEYS.weekSecs,null);
   if(ws)weekSecs.splice(0,7,...ws);
-  // ── 기존 위클리 데이터 마이그레이션 (월=0 → 일=0 기준) ──
-  const needsMigration=weeklyTodos.some(t=>t._dayBase!=='sun');
-  if(needsMigration){
-    weeklyTodos=weeklyTodos.map(t=>{
-      if(t._dayBase==='sun')return t;
-      const newDay=(t.day+1)%7; // 월=0→1, 화=1→2, ..., 토=5→6, 일=6→0
-      let newWs=t.weekStart;
-      if(t.weekStart){
-        const parts=t.weekStart.split('-');
-        const d=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
-        // 월요일 weekStart → 일요일 weekStart: 하루 앞당김
-        // 단, 기존 일요일(day=6) 항목은 이미 해당 주 월요일에 속했으므로
-        // 일요일로 변환 시 그 주 일요일 = 월요일 -1일
-        d.setDate(d.getDate()-1);
-        newWs=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      }
-      return {...t,day:newDay,weekStart:newWs,_dayBase:'sun'};
-    });
-    save(KEYS.weekly,weeklyTodos);
+  // ── 기존 위클리 데이터 마이그레이션 (월=0 → 일=0 기준) — 평생 1회만 실행 ──
+  const migrationDone=load('ned_wk_migrated_v1',false);
+  if(!migrationDone){
+    const needsMigration=weeklyTodos.some(t=>t._dayBase!=='sun');
+    if(needsMigration){
+      weeklyTodos=weeklyTodos.map(t=>{
+        if(t._dayBase==='sun')return t;
+        const newDay=(t.day+1)%7; // 월=0→1, 화=1→2, ..., 토=5→6, 일=6→0
+        let newWs=t.weekStart;
+        if(t.weekStart){
+          const parts=t.weekStart.split('-');
+          const d=new Date(parseInt(parts[0]),parseInt(parts[1])-1,parseInt(parts[2]));
+          // 월요일 weekStart → 일요일 weekStart: 하루 앞당김
+          // 단, 기존 일요일(day=6) 항목은 이미 해당 주 월요일에 속했으므로
+          // 일요일로 변환 시 그 주 일요일 = 월요일 -1일
+          d.setDate(d.getDate()-1);
+          newWs=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+        return {...t,day:newDay,weekStart:newWs,_dayBase:'sun'};
+      });
+      save(KEYS.weekly,weeklyTodos);
+    }
+    save('ned_wk_migrated_v1',true);
   }
 }
 
