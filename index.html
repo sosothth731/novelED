@@ -318,12 +318,25 @@ onAuthStateChanged(auth, async user => {
 
 // ──────────────────────────────────────────
 // PULL: Firestore → localStorage
+// 로컬에 아직 서버로 올라가지 않은(미저장) 최신 변경사항이 있으면
+// 그것을 절대 덮어쓰지 않는다 — 대신 먼저 그 변경사항을 push한다.
 // ──────────────────────────────────────────
 async function pullFromFirestore(uid) {
   try {
-    const userDoc = await getDoc(doc(db, 'users', uid, 'data', 'main'));
+    const docRef = doc(db, 'users', uid, 'data', 'main');
+    const userDoc = await getDoc(docRef);
     if (userDoc.exists()) {
       const d = userDoc.data();
+      const remoteUpdated = d._updated || 0;
+      const localUpdated = parseInt(localStorage.getItem('ned_local_updated') || '0', 10);
+
+      if (localUpdated > remoteUpdated) {
+        // 로컬에 서버보다 더 최신인, 아직 저장 안 된 변경사항이 있음
+        // → pull로 덮어쓰지 않고, 먼저 로컬 데이터를 서버에 올린다.
+        await pushToFirestore(uid, /*skipConflictCheck*/ true);
+        return;
+      }
+
       const keys = ['ned_todos','ned_works','ned_sched','ned_promos','ned_authors',
                     'ned_contacts','ned_excl','ned_memos','ned_theme','ned_weekly',
                     'ned_weeksecs','ned_lastweek',
@@ -334,8 +347,9 @@ async function pullFromFirestore(uid) {
       keys.forEach(k => {
         if (d[k] !== undefined) localStorage.setItem(k, JSON.stringify(d[k]));
       });
+      window._lastPulledUpdated = remoteUpdated || Date.now();
+      localStorage.setItem('ned_local_updated', String(window._lastPulledUpdated));
       window._pulling = false;
-      window._lastPulledUpdated = d._updated || Date.now();
     }
   } catch(e) { console.warn('Firestore pull 실패:', e); }
 }
@@ -351,7 +365,7 @@ function schedulePush() {
   pushTimer = setTimeout(() => pushToFirestore(window._fbUid), 1500);
 }
 
-async function pushToFirestore(uid) {
+async function pushToFirestore(uid, skipConflictCheck) {
   try {
     const badge = document.getElementById('fb-sync-badge');
     if (badge) { badge.textContent = '☁ 저장 중...'; badge.style.color = 'var(--a2)'; }
@@ -361,30 +375,34 @@ async function pushToFirestore(uid) {
                   'ned_catsecs','ned_totalsec'];
     // ned_timeblocks, ned_lastdate는 기기별 독립 관리 — Firestore 제외
 
-    // ── 충돌 방지: push 직전에 서버의 최신 _updated를 확인 ──
-    // 이 탭이 마지막으로 pull한 시점 이후 다른 기기가 먼저 저장했다면,
-    // 이 탭의 (오래된) localStorage로 덮어쓰지 않고 먼저 최신 데이터를 반영한다.
     const docRef = doc(db, 'users', uid, 'data', 'main');
-    const remoteSnap = await getDoc(docRef);
-    if (remoteSnap.exists()) {
-      const remote = remoteSnap.data();
-      const remoteUpdated = remote._updated || 0;
-      const lastKnown = window._lastPulledUpdated || 0;
-      if (remoteUpdated > lastKnown) {
-        // 다른 기기가 더 최근에 저장했음 → 이 탭의 stale 데이터로 덮어쓰지 않고
-        // 먼저 원격 데이터를 localStorage에 반영한 뒤 앱 변수를 갱신한다.
-        window._pulling = true;
-        keys.forEach(k => {
-          if (remote[k] !== undefined) localStorage.setItem(k, JSON.stringify(remote[k]));
-        });
-        window._pulling = false;
-        window._lastPulledUpdated = remoteUpdated;
-        if (typeof reloadAppData === 'function') reloadAppData();
-        if (typeof renderWeekly === 'function') renderWeekly();
-        if (typeof renderTodos === 'function') renderTodos();
-        if (badge) { badge.textContent = '☁ 최신 데이터로 갱신됨'; badge.style.color = 'var(--a2)'; }
-        // 이번 push는 건너뛴다 — 다음 변경사항이 생기면 그때 다시 push된다
-        return;
+
+    if (!skipConflictCheck) {
+      // ── 충돌 방지: push 직전에 서버의 최신 _updated를 확인 ──
+      // 이 탭이 마지막으로 pull한 시점 이후 다른 기기가 먼저 저장했다면,
+      // 이 탭의 (오래된) localStorage로 덮어쓰지 않고 먼저 최신 데이터를 반영한다.
+      const remoteSnap = await getDoc(docRef);
+      if (remoteSnap.exists()) {
+        const remote = remoteSnap.data();
+        const remoteUpdated = remote._updated || 0;
+        const lastKnown = window._lastPulledUpdated || 0;
+        if (remoteUpdated > lastKnown) {
+          // 다른 기기가 더 최근에 저장했음 → 이 탭의 stale 데이터로 덮어쓰지 않고
+          // 먼저 원격 데이터를 localStorage에 반영한 뒤 앱 변수를 갱신한다.
+          window._pulling = true;
+          keys.forEach(k => {
+            if (remote[k] !== undefined) localStorage.setItem(k, JSON.stringify(remote[k]));
+          });
+          window._pulling = false;
+          window._lastPulledUpdated = remoteUpdated;
+          localStorage.setItem('ned_local_updated', String(remoteUpdated));
+          if (typeof reloadAppData === 'function') reloadAppData();
+          if (typeof renderWeekly === 'function') renderWeekly();
+          if (typeof renderTodos === 'function') renderTodos();
+          if (badge) { badge.textContent = '☁ 최신 데이터로 갱신됨'; badge.style.color = 'var(--a2)'; }
+          // 이번 push는 건너뛴다 — 다음 변경사항이 생기면 그때 다시 push된다
+          return;
+        }
       }
     }
 
@@ -398,6 +416,9 @@ async function pushToFirestore(uid) {
     data._updated = Date.now();
     await setDoc(docRef, data);
     window._lastPulledUpdated = data._updated;
+    window._pulling = true; // 아래 ned_local_updated 저장이 다시 push를 트리거하지 않도록
+    localStorage.setItem('ned_local_updated', String(data._updated));
+    window._pulling = false;
     if (badge) { badge.textContent = '☁ 저장됨'; badge.style.color = 'var(--a3)'; }
   } catch(e) {
     console.warn('Firestore push 실패:', e);
@@ -429,11 +450,19 @@ window.fbLogout = async function() {
 };
 
 // ──────────────────────────────────────────
-// INTERCEPT localStorage.setItem → auto push
+// INTERCEPT localStorage.setItem → auto push + 로컬 변경시각 기록
 // ──────────────────────────────────────────
 const _origSetItem = localStorage.setItem.bind(localStorage);
+const _syncedKeys = new Set(['ned_todos','ned_works','ned_sched','ned_promos','ned_authors',
+  'ned_contacts','ned_excl','ned_memos','ned_theme','ned_weekly',
+  'ned_weeksecs','ned_lastweek','ned_catsecs','ned_totalsec']);
 localStorage.setItem = function(k, v) {
   _origSetItem(k, v);
+  if (k === 'ned_local_updated') return; // 무한루프 방지
+  if (_syncedKeys.has(k) && !window._pulling) {
+    // pull/충돌해결 중이 아닐 때만 "로컬이 변경됐다"는 시각을 기록
+    _origSetItem('ned_local_updated', String(Date.now()));
+  }
   if (k.startsWith('ned_')) schedulePush();
 };
 
