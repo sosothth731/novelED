@@ -256,6 +256,11 @@ const auth = getAuth(app);
 const db   = getFirestore(app);
 let currentUid = null;
 
+// 로그인 사용자가 Firestore와 최소 1회 성공적으로 동기화(pull)했는지 여부.
+// 이게 true가 되기 전에는 절대 push하지 않는다 — 그래야 새 기기의 텅 빈
+// 로컬 데이터가 클라우드의 기존 데이터를 실수로 덮어쓰는 사고를 막을 수 있다.
+window._everSynced = false;
+
 // ──────────────────────────────────────────
 // AUTH STATE
 // ──────────────────────────────────────────
@@ -320,6 +325,8 @@ onAuthStateChanged(auth, async user => {
 // PULL: Firestore → localStorage
 // 로컬에 아직 서버로 올라가지 않은(미저장) 최신 변경사항이 있으면
 // 그것을 절대 덮어쓰지 않는다 — 대신 먼저 그 변경사항을 push한다.
+// 성공적으로 pull을 마쳤을 때만 _everSynced=true로 표시한다.
+// (네트워크 오류 등으로 실패하면 절대 표시하지 않음 — push 금지 상태 유지)
 // ──────────────────────────────────────────
 async function pullFromFirestore(uid) {
   try {
@@ -333,6 +340,7 @@ async function pullFromFirestore(uid) {
       if (localUpdated > remoteUpdated) {
         // 로컬에 서버보다 더 최신인, 아직 저장 안 된 변경사항이 있음
         // → pull로 덮어쓰지 않고, 먼저 로컬 데이터를 서버에 올린다.
+        window._everSynced = true;
         await pushToFirestore(uid, /*skipConflictCheck*/ true);
         return;
       }
@@ -350,8 +358,15 @@ async function pullFromFirestore(uid) {
       window._lastPulledUpdated = remoteUpdated || Date.now();
       localStorage.setItem('ned_local_updated', String(window._lastPulledUpdated));
       window._pulling = false;
+      window._everSynced = true;
+    } else {
+      // 클라우드에 문서 자체가 없음 — 진짜 신규 사용자. 이 경우만 빈 로컬 상태로 push해도 안전.
+      window._everSynced = true;
     }
-  } catch(e) { console.warn('Firestore pull 실패:', e); }
+  } catch(e) {
+    console.warn('Firestore pull 실패:', e);
+    // 실패 시 _everSynced를 절대 true로 만들지 않는다 — push 금지 상태 유지
+  }
 }
 
 // ──────────────────────────────────────────
@@ -361,11 +376,18 @@ let pushTimer = null;
 function schedulePush() {
   if (!window._fbUid) return;
   if (window._pulling) return; // pull 중에는 push 안 함
+  if (!window._everSynced) return; // 최초 동기화(pull) 전에는 절대 push 금지 — 새 기기의 빈 로컬이 클라우드를 덮어쓰는 사고 방지
   clearTimeout(pushTimer);
   pushTimer = setTimeout(() => pushToFirestore(window._fbUid), 1500);
 }
 
 async function pushToFirestore(uid, skipConflictCheck) {
+  // 최초 동기화 전에는 어떤 경로로 호출되었든 push를 거부한다.
+  // (migrateToFirestore처럼 사용자가 명시적으로 누른 버튼은 예외로 허용)
+  if (!window._everSynced && !skipConflictCheck) {
+    console.warn('Firestore push 차단: 아직 최초 동기화(pull)가 완료되지 않음');
+    return;
+  }
   try {
     const badge = document.getElementById('fb-sync-badge');
     if (badge) { badge.textContent = '☁ 저장 중...'; badge.style.color = 'var(--a2)'; }
@@ -403,6 +425,19 @@ async function pushToFirestore(uid, skipConflictCheck) {
           // 이번 push는 건너뛴다 — 다음 변경사항이 생기면 그때 다시 push된다
           return;
         }
+        // ── 안전장치: 클라우드엔 실제 데이터가 꽤 있는데, 지금 올리려는 로컬은
+        // 핵심 항목이 전부 텅 비어있다면 — 비정상 상황(버그/초기화 사고)일 가능성이 높으므로 push를 보류한다.
+        const remoteHasData = ['ned_todos','ned_works','ned_sched','ned_weekly'].some(k => {
+          try { const arr = remote[k]; return Array.isArray(arr) && arr.length > 0; } catch(e){ return false; }
+        });
+        const localIsEmpty = ['ned_todos','ned_works','ned_sched','ned_weekly'].every(k => {
+          try { const v = localStorage.getItem(k); const arr = v ? JSON.parse(v) : []; return !Array.isArray(arr) || arr.length === 0; } catch(e){ return true; }
+        });
+        if (remoteHasData && localIsEmpty) {
+          console.warn('Firestore push 차단: 클라우드엔 데이터가 있는데 로컬이 텅 비어있어 덮어쓰기를 보류합니다.');
+          if (badge) { badge.textContent = '☁ 동기화 보류 (로컬 데이터 없음)'; badge.style.color = '#b01830'; }
+          return;
+        }
       }
     }
 
@@ -429,11 +464,14 @@ async function pushToFirestore(uid, skipConflictCheck) {
 
 // ──────────────────────────────────────────
 // MIGRATE: 기존 localStorage 데이터를 Firestore로 올리기
+// 사용자가 명시적으로 누르는 동작이므로, _everSynced/빈 데이터 안전장치를 모두 우회하고
+// 강제로 현재 로컬 데이터를 클라우드에 업로드한다.
 // ──────────────────────────────────────────
 window.migrateToFirestore = async function() {
   if (!window._fbUid) { alert('먼저 로그인하세요'); return; }
   if (!confirm('현재 로컬 데이터를 Firestore에 업로드합니다. 계속하시겠습니까?')) return;
-  await pushToFirestore(window._fbUid);
+  window._everSynced = true; // 사용자가 명시적으로 요청한 강제 업로드이므로 동기화 가드를 해제
+  await pushToFirestore(window._fbUid, /*skipConflictCheck*/ true);
   alert('마이그레이션 완료! 데이터가 클라우드에 저장되었습니다.');
 };
 
@@ -2737,10 +2775,20 @@ function init(){
 window.addEventListener('beforeunload',()=>{
   if(typeof activeTimerId!=='undefined'&&activeTimerId!==null)stopTodoTimer();
 });
-// 3초 내 Firebase 응답 없으면 로컬 데이터로 자동 실행
+// Firebase 응답이 늦어질 경우를 대비한 안전장치.
+// _everSynced 가드 덕분에, 설령 이 fallback이 빈 로컬 데이터로 init()을 실행하더라도
+// 로그인된 사용자의 클라우드 데이터를 push로 덮어쓰는 일은 발생하지 않는다
+// (pullFromFirestore가 성공적으로 끝나기 전까지 schedulePush/pushToFirestore가 전부 차단됨).
 window._fbInitDone = false;
 setTimeout(()=>{
-  if(!window._fbInitDone){ window._fbInitDone=true; init(); }
+  if(!window._fbInitDone){
+    window._fbInitDone=true;
+    init();
+    // 아직 로그인 사용자로 인식된 상태라면(= Firebase 응답이 단지 느린 것뿐이라면)
+    // 동기화가 끝날 때까지 배지로 계속 안내한다.
+    const badge=document.getElementById('fb-sync-badge');
+    if(window._fbUid && badge){ badge.textContent='☁ 동기화 확인 중... (잠시만 기다려주세요)'; badge.style.color='var(--a2)'; }
+  }
 }, 2500);
 </script>
 </body>
