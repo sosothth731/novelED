@@ -12,11 +12,11 @@ body[data-theme="slate"]{--nav:#2d3a4a;--nacc:#93b5d4;--acc:#4e7fa0;--a2:#e09c3a
 body[data-theme="rose"]{--nav:#2a2a2e;--nacc:#e8a0b4;--acc:#d4748e;--a2:#f0c4d4;--a3:#a8c4b8;--bg1:#ffffff;--bg2:#fdf6f8;--bg3:#f5eef1;--t1:#2a2a2e;--t2:#7a7280;--b1:rgba(42,42,46,.09);--b2:rgba(42,42,46,.18);--r:8px;--rl:12px}
 body[data-theme="indigo"]{--nav:#1e1e3a;--nacc:#8888d4;--acc:#5555b8;--a2:#e8a838;--a3:#52b788;--bg1:#ffffff;--bg2:#f4f4fb;--bg3:#eaeaf4;--t1:#1e1e3a;--t2:#5a5a80;--b1:rgba(30,30,58,.1);--b2:rgba(30,30,58,.22);--r:8px;--rl:12px}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:var(--t1);background:var(--bg3)}
-.app{display:grid;grid-template-columns:0 1fr;min-height:100vh}
-.nav{background:var(--nav);padding:1.5rem 0;display:flex;flex-direction:column;gap:3px;position:fixed;top:0;left:0;height:100vh;width:210px;overflow-y:auto;transform:translateX(-210px);transition:transform .22s cubic-bezier(.4,0,.2,1);z-index:100}
-.nav:hover{transform:translateX(0);box-shadow:4px 0 24px rgba(0,0,0,.18)}
-.nav-hover-zone{position:fixed;top:0;left:0;width:20px;height:100vh;z-index:99}
-.nav-hover-zone:hover+nav,.nav-hover-zone:hover~* .nav{transform:translateX(0)}
+.app{display:block;min-height:100vh}
+.nav{background:var(--nav);padding:1.5rem 0;display:flex;flex-direction:column;gap:3px;position:fixed;top:0;left:0;height:100vh;width:210px;overflow-y:auto;transform:translateX(-210px);transition:transform .22s cubic-bezier(.4,0,.2,1);z-index:200;box-shadow:none}
+.nav:hover{transform:translateX(0);box-shadow:6px 0 32px rgba(0,0,0,.22)}
+.content{margin-left:0;overflow:auto;background:var(--bg3);min-height:100vh}
+.nav-hover-zone{position:fixed;top:0;left:0;width:16px;height:100vh;z-index:199;cursor:default}
 .nav-logo{padding:0 1.25rem 1.25rem;font-size:15px;font-weight:500;color:rgba(255,255,255,.9);letter-spacing:.5px;border-bottom:0.5px solid rgba(255,255,255,.1);margin-bottom:.5rem}
 .nav-logo span{color:var(--nacc)}
 .nav-item{display:flex;align-items:center;gap:10px;padding:.5rem 1.25rem;cursor:pointer;font-size:13px;color:rgba(255,255,255,.45);transition:all .15s}
@@ -511,8 +511,8 @@ localStorage.setItem = function(k, v) {
 </head>
 <body data-theme="midnight">
 <div class="app">
-<div class="nav-hover-zone" onmouseenter="document.querySelector('.nav').style.transform='translateX(0)';document.querySelector('.nav').style.boxShadow='4px 0 24px rgba(0,0,0,.18)'" onmouseleave="document.querySelector('.nav').style.transform='';document.querySelector('.nav').style.boxShadow=''"></div>
-<nav class="nav" onmouseleave="this.style.transform='';this.style.boxShadow=''" onmouseenter="this.style.transform='translateX(0)';this.style.boxShadow='4px 0 24px rgba(0,0,0,.18)'">
+<div class="nav-hover-zone" onmouseenter="showNav()" onmouseleave="hideNav()"></div>
+<nav class="nav" id="main-nav" onmouseenter="showNav()" onmouseleave="hideNav()">
   <div class="nav-logo">novel<span>ed</span>
     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:10px" id="theme-dots"></div>
   </div>
@@ -2794,6 +2794,20 @@ setTimeout(()=>{
     if(window._fbUid && badge){ badge.textContent='☁ 동기화 확인 중... (잠시만 기다려주세요)'; badge.style.color='var(--a2)'; }
   }
 }, 2500);
+
+// ══════ NAV HOVER SHOW/HIDE ══════
+let _navHideTimer = null;
+function showNav(){
+  clearTimeout(_navHideTimer);
+  const nav = document.getElementById('main-nav');
+  if(nav){ nav.style.transform='translateX(0)'; nav.style.boxShadow='6px 0 32px rgba(0,0,0,.22)'; }
+}
+function hideNav(){
+  _navHideTimer = setTimeout(()=>{
+    const nav = document.getElementById('main-nav');
+    if(nav){ nav.style.transform=''; nav.style.boxShadow=''; }
+  }, 120);
+}
 </script>
 </body>
 </html>
