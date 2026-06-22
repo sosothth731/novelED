@@ -2809,63 +2809,58 @@ function hideNav(){
   }, 120);
 }
 </script>
-  <script>
+<script>
 (function() {
-  // 1. 클로드가 위에서 만든 기존 함수들을 안전하게 백업
+  // 1. 기존 함수들 백업
   const origPull = window.pullFromFirestore || (typeof pullFromFirestore !== 'undefined' ? pullFromFirestore : null);
   const origPush = window.pushToFirestore || (typeof pushToFirestore !== 'undefined' ? pushToFirestore : null);
   const origSchedule = window.schedulePush || (typeof schedulePush !== 'undefined' ? schedulePush : null);
 
-  // 처음 접속하거나 새로고침했을 때는 무조건 가드를 굳게 닫아둠 (Push 절대 금지)
-  window._everSynced = false;
+  // 핵심 자물쇠: '현재 내 브라우저 메모리에 있는 데이터가 어떤 UID의 데이터인가'를 명확히 기록
+  window._lastSyncedUid = null;
 
-  // 2. [데이터 가져오기] 함수 인터셉트 및 교정
+  // 2. [데이터 가져오기] 함수 교정
   if (origPull) {
     const targetPull = async function(...args) {
-      window._everSynced = false; // 데이터를 가져오는 중에는 업로드 가드를 절대적으로 닫음
-      console.log("%c[형의 보안관] 📥 구글 계정에서 데이터를 가져오는 중... 모든 업로드(Push)를 원천 차단합니다.", "color: #e8a838; font-weight: bold;");
-      
+      console.log("%c[형의 보안관] 📥 구글 계정에서 최신 데이터를 가져오는 중...", "color: #e8a838; font-weight: bold;");
       try {
         const res = await origPull.apply(this, args);
-        // ★ 핵심: 서버 데이터를 완벽하게 내 브라우저로 다 당겨온 '직후'에만 가드를 열어준다.
-        window._everSynced = true; 
-        console.log("%c[형의 보안관] 🎉 구글 계정 데이터 로드 완료! 이제부터 자동 저장이 안전하게 허용됩니다.", "color: #52b788; font-weight: bold;");
+        // ★ 핵심: 구글 서버에서 데이터를 완벽히 다 가져온 '직후'에만, 현재 계정(UID)을 동기화 완료 ID로 승인한다.
+        window._lastSyncedUid = window._fbUid; 
+        console.log("%c[형의 보안관] 🎉 데이터 로드 완료! 현재 계정 계정과 완벽히 동기화되었습니다.", "color: #52b788; font-weight: bold;");
         return res;
       } catch (err) {
         console.error("[형의 보안관] ❌ 서버 데이터 로드 실패:", err);
-        window._everSynced = true; // 에러 발생 시 로컬 작업은 가능하게 가드를 풀어줌
         throw err;
       }
     };
-    
     window.pullFromFirestore = targetPull;
     try { if (typeof pullFromFirestore !== 'undefined') pullFromFirestore = targetPull; } catch(e){}
   }
 
-  // 3. [데이터 업로드] 함수 인터셉트 및 교정
+  // 3. [데이터 업로드] 함수 교정
   if (origPush) {
     const targetPush = function(...args) {
-      if (!window._everSynced) {
-        console.warn("%c[형의 보안관] 🛑 [차단] 아직 구글 최신 데이터를 다 가져오지 못했습니다! 빈 로컬 값이 서버를 덮어쓰지 않도록 업로드를 차단했습니다.", "color: #ff6b6b; font-weight: bold;");
-        return; // 원래 push 로직을 실행하지 않고 즉시 리턴(생존)
+      // ★ 절대 자물쇠: 로그인 상태인데, 내가 방금 구글에서 가져온 UID(_lastSyncedUid)와 
+      // 현재 로그인된 UID(window._fbUid)가 일치하지 않으면 업로드를 무조건 '하드 차단'한다.
+      if (window._fbUid && window._fbUid !== window._lastSyncedUid) {
+        console.warn("%c[형의 보안관] 🛑 [위험 차단] 아직 구글 최신 데이터를 다 가져오지 못했습니다! 빈 로컬 값이 서버를 덮어쓰지 않도록 업로드를 차단했습니다.", "color: #ff6b6b; font-weight: bold;");
+        return; // push 실행 안 하고 기어가서 생존
       }
       return origPush.apply(this, args);
     };
-    
     window.pushToFirestore = targetPush;
     try { if (typeof pushToFirestore !== 'undefined') pushToFirestore = targetPush; } catch(e){}
   }
 
-  // 4. [예약 업로드] 함수 인터셉트 및 교정
+  // 4. [예약 업로드] 함수 교정
   if (origSchedule) {
     const targetSchedule = function(...args) {
-      if (!window._everSynced) {
-        console.warn("[형의 보안관] 🛑 [차단] 동기화 전이므로 예약 업로드를 차단합니다.");
+      if (window._fbUid && window._fbUid !== window._lastSyncedUid) {
         return;
       }
       return origSchedule.apply(this, args);
     };
-    
     window.schedulePush = targetSchedule;
     try { if (typeof schedulePush !== 'undefined') schedulePush = targetSchedule; } catch(e){}
   }
