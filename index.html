@@ -267,6 +267,7 @@ window._everSynced = false;
 // ──────────────────────────────────────────
 // AUTH STATE
 // ──────────────────────────────────────────
+let _lastAuthUid = null; // 동일 UID로 onAuthStateChanged가 반복 호출될 때 pull 재실행 방지
 onAuthStateChanged(auth, async user => {
   const loginBtn  = document.getElementById('fb-login-btn');
   const logoutBtn = document.getElementById('fb-logout-btn');
@@ -279,6 +280,15 @@ onAuthStateChanged(auth, async user => {
     if (loginBtn)  loginBtn.style.display  = 'none';
     if (logoutBtn) logoutBtn.style.display = 'inline-flex';
     if (userInfo)  userInfo.textContent     = user.displayName || user.email;
+
+    // 동일 UID로 재호출(토큰 갱신 등)이면 pull/init 재실행하지 않음
+    // — 이게 없으면 토큰 갱신마다 pull이 돌면서 방금 입력한 데이터를 덮어쓸 위험이 있음
+    if (_lastAuthUid === currentUid && window._fbInitDone) {
+      if (syncBadge) { syncBadge.textContent = '☁ 동기화 완료'; syncBadge.style.color = 'var(--a3)'; }
+      return;
+    }
+    _lastAuthUid = currentUid;
+
     if (syncBadge) { syncBadge.textContent = '☁ 동기화 중...'; syncBadge.style.color = 'var(--a2)'; }
 
     // Firestore에서 최신 데이터 pull → 완료 후 앱 변수 재로드 후 렌더링
@@ -288,25 +298,25 @@ onAuthStateChanged(auth, async user => {
     // localStorage가 업데이트됐으므로 앱 변수 재로드
     reloadAppData();
 
-    // pull 후 날짜 체크 — 오늘 아닌 timeBlocks 즉시 제거
+    // pull 후 날짜 체크 — 오늘 아닌 timeBlocks 즉시 제거 (_pulling 중에 처리해서 push 방지)
+    window._pulling = true;
     (function(){
       const now=new Date();
       const todayStr=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
       const lastDate=localStorage.getItem('ned_lastdate')?JSON.parse(localStorage.getItem('ned_lastdate')):'';
       if(lastDate!==todayStr){
-        // 날짜 바뀜 → timeBlocks 전부 초기화
         localStorage.setItem('ned_timeblocks',JSON.stringify([]));
       } else {
-        // 같은 날이지만 _date 다른 블록 제거
         let tb=[];try{tb=JSON.parse(localStorage.getItem('ned_timeblocks')||'[]');}catch(e){}
         const cleaned=tb.filter(b=>!b._date||b._date===todayStr);
         if(cleaned.length!==tb.length)localStorage.setItem('ned_timeblocks',JSON.stringify(cleaned));
       }
-      // 앱 변수에도 반영
       if(typeof timeBlocks!=='undefined'){
         try{timeBlocks=JSON.parse(localStorage.getItem('ned_timeblocks')||'[]');}catch(e){timeBlocks=[];}
       }
     })();
+    window._pulling = false;
+
     // 앱 렌더링
     window._fbInitDone = true;
     if (typeof init === 'function') init();
@@ -314,6 +324,7 @@ onAuthStateChanged(auth, async user => {
   } else {
     currentUid = null;
     window._fbUid = null;
+    _lastAuthUid = null;
     if (loginBtn)  loginBtn.style.display  = 'inline-flex';
     if (logoutBtn) logoutBtn.style.display = 'none';
     if (userInfo)  userInfo.textContent     = '';
@@ -2808,63 +2819,6 @@ function hideNav(){
     if(nav){ nav.style.transform=''; nav.style.boxShadow=''; }
   }, 120);
 }
-</script>
-<script>
-(function() {
-  // 1. 기존 함수들 백업
-  const origPull = window.pullFromFirestore || (typeof pullFromFirestore !== 'undefined' ? pullFromFirestore : null);
-  const origPush = window.pushToFirestore || (typeof pushToFirestore !== 'undefined' ? pushToFirestore : null);
-  const origSchedule = window.schedulePush || (typeof schedulePush !== 'undefined' ? schedulePush : null);
-
-  // 핵심 자물쇠: '현재 내 브라우저 메모리에 있는 데이터가 어떤 UID의 데이터인가'를 명확히 기록
-  window._lastSyncedUid = null;
-
-  // 2. [데이터 가져오기] 함수 교정
-  if (origPull) {
-    const targetPull = async function(...args) {
-      console.log("%c[형의 보안관] 📥 구글 계정에서 최신 데이터를 가져오는 중...", "color: #e8a838; font-weight: bold;");
-      try {
-        const res = await origPull.apply(this, args);
-        // ★ 핵심: 구글 서버에서 데이터를 완벽히 다 가져온 '직후'에만, 현재 계정(UID)을 동기화 완료 ID로 승인한다.
-        window._lastSyncedUid = window._fbUid; 
-        console.log("%c[형의 보안관] 🎉 데이터 로드 완료! 현재 계정 계정과 완벽히 동기화되었습니다.", "color: #52b788; font-weight: bold;");
-        return res;
-      } catch (err) {
-        console.error("[형의 보안관] ❌ 서버 데이터 로드 실패:", err);
-        throw err;
-      }
-    };
-    window.pullFromFirestore = targetPull;
-    try { if (typeof pullFromFirestore !== 'undefined') pullFromFirestore = targetPull; } catch(e){}
-  }
-
-  // 3. [데이터 업로드] 함수 교정
-  if (origPush) {
-    const targetPush = function(...args) {
-      // ★ 절대 자물쇠: 로그인 상태인데, 내가 방금 구글에서 가져온 UID(_lastSyncedUid)와 
-      // 현재 로그인된 UID(window._fbUid)가 일치하지 않으면 업로드를 무조건 '하드 차단'한다.
-      if (window._fbUid && window._fbUid !== window._lastSyncedUid) {
-        console.warn("%c[형의 보안관] 🛑 [위험 차단] 아직 구글 최신 데이터를 다 가져오지 못했습니다! 빈 로컬 값이 서버를 덮어쓰지 않도록 업로드를 차단했습니다.", "color: #ff6b6b; font-weight: bold;");
-        return; // push 실행 안 하고 기어가서 생존
-      }
-      return origPush.apply(this, args);
-    };
-    window.pushToFirestore = targetPush;
-    try { if (typeof pushToFirestore !== 'undefined') pushToFirestore = targetPush; } catch(e){}
-  }
-
-  // 4. [예약 업로드] 함수 교정
-  if (origSchedule) {
-    const targetSchedule = function(...args) {
-      if (window._fbUid && window._fbUid !== window._lastSyncedUid) {
-        return;
-      }
-      return origSchedule.apply(this, args);
-    };
-    window.schedulePush = targetSchedule;
-    try { if (typeof schedulePush !== 'undefined') schedulePush = targetSchedule; } catch(e){}
-  }
-})();
 </script>
 </body>
 </html>
