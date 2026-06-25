@@ -1506,7 +1506,30 @@ function dropTodoToToday(e){
   e.preventDefault();
   const id=parseInt(e.dataTransfer.getData('text/plain')||e.dataTransfer.getData('text/todo-id'));
   const t=todos.find(x=>x.id===id);
-  if(t){t.todayFlag=true;save(KEYS.todos,todos);renderTodos();}
+  if(!t)return;
+  // 마감일을 오늘로 변경
+  const now=new Date();
+  const todayStr=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  t.date=todayStr;
+  t.todayFlag=true;
+  // 연결된 위클리 항목도 오늘 날짜/요일로 이동
+  const dow=now.getDay();
+  const dws=new Date(now.getFullYear(),now.getMonth(),now.getDate()-dow);
+  const wsStr=`${dws.getFullYear()}-${String(dws.getMonth()+1).padStart(2,'0')}-${String(dws.getDate()).padStart(2,'0')}`;
+  if(t.linkedId){
+    const wt=weeklyTodos.find(x=>x.id===t.linkedId);
+    if(wt){wt.day=dow;wt.weekStart=wsStr;}
+    else{
+      const wtId=Date.now()+1;
+      weeklyTodos.push({id:wtId,text:t.text,cat:t.cat,day:dow,weekStart:wsStr,done:t.done,type:'work',_dayBase:'sun',linkedId:id});
+      t.linkedId=wtId;
+    }
+  } else {
+    const wtId=Date.now()+1;
+    weeklyTodos.push({id:wtId,text:t.text,cat:t.cat,day:dow,weekStart:wsStr,done:t.done,type:'work',_dayBase:'sun',linkedId:id});
+    t.linkedId=wtId;
+  }
+  save(KEYS.todos,todos);save(KEYS.weekly,weeklyTodos);renderTodos();renderWeekly();renderCalendar();
 }
 function dropTodoToUpcoming(e){
   e.preventDefault();
