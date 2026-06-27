@@ -755,6 +755,7 @@ localStorage.setItem = function(k, v) {
       <button id="wk-btn-1" onclick="setWeekCount(1)" style="font-size:11px;padding:3px 10px;border:none;background:var(--bg2);color:var(--t2);cursor:pointer;font-family:inherit">1주</button>
       <button id="wk-btn-2" onclick="setWeekCount(2)" style="font-size:11px;padding:3px 10px;border:none;background:var(--acc);color:#fff;cursor:pointer;font-family:inherit">2주</button>
       <button id="wk-btn-3" onclick="setWeekCount(3)" style="font-size:11px;padding:3px 10px;border:none;background:var(--bg2);color:var(--t2);cursor:pointer;font-family:inherit">3주</button>
+      <button id="wk-btn-4" onclick="setWeekCount(4)" style="font-size:11px;padding:3px 10px;border:none;background:var(--bg2);color:var(--t2);cursor:pointer;font-family:inherit">4주</button>
     </div>
     <button class="btn btn-sm btn-acc" style="margin-left:auto" onclick="openWeeklyModal(null)">+ 추가</button>
   </div>
@@ -2462,7 +2463,7 @@ let weekOffset=0,editingWeeklyId=null,weekCount=2;
 
 function setWeekCount(n){
   weekCount=n;
-  [1,2,3].forEach(i=>{
+  [1,2,3,4].forEach(i=>{
     const btn=document.getElementById('wk-btn-'+i);
     if(!btn)return;
     btn.style.background=i===n?'var(--acc)':'var(--bg2)';
@@ -2501,7 +2502,7 @@ function renderWeekly(){
     const bannerHtml=personalItems.length?personalItems.map(p=>{
       const bg=p.noOvertime?'#fef3c7':p.done?'#f3f4f6':'#fce7f3';
       const tc=p.noOvertime?'#92400e':p.done?'#9ca3af':'#be185d';
-      const label=`${p.noOvertime?'⚠ ':'🪼 '}${p.text}${p.time?' · '+p.time:''}`;
+      const label=`${p.noOvertime?'✏️ ':'🪼 '}${p.text}${p.time?' · '+p.time:''}`;
       return`<div style="background:${bg};color:${tc};font-size:10px;padding:3px 8px;font-weight:500;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="openWeeklyModal(${p.id},${dayIdx})">${label}<span style="opacity:.5;font-size:9px">수정</span></div>`;
     }).join(''):'';
     return`<div style="background:var(--bg1);border:${isToday?'1.5px solid var(--acc)':'0.5px solid var(--b1)'};border-radius:var(--rl);overflow:hidden"
