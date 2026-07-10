@@ -915,9 +915,17 @@ localStorage.setItem = function(k, v) {
     <div style="font-size:15px;font-weight:500;margin-bottom:1rem" id="todo-modal-title">할 일 추가</div>
     <input type="hidden" id="tm-id">
     <input type="text" id="tm-text" placeholder="할 일 내용" style="width:100%;margin-bottom:8px">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-      <select id="tm-cat" style="width:100%"><option value="review">리뷰</option><option value="edit">교정</option><option value="design">디자인</option><option value="secondary">2차</option><option value="comm">소통</option><option value="make">제작</option><option value="etc">기타</option></select>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <select id="tm-cat" style="width:100%" onchange="onTmCatChange()"><option value="review">리뷰</option><option value="edit">교정</option><option value="design">디자인</option><option value="secondary">2차</option><option value="comm">소통</option><option value="make">제작</option><option value="etc">기타</option></select>
       <select id="tm-pri" style="width:100%"><option value="high">높음 (HIGH)</option><option value="med" selected>보통</option><option value="low">낮음</option></select>
+    </div>
+    <!-- 글자수 기반 마감일 예측: 리뷰/교정 업무일 때만 노출 -->
+    <div id="tm-predict-box" style="display:none;margin-bottom:8px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">
+        <input type="number" id="tm-char" min="0" placeholder="글자 수 (선택)" style="width:100%" oninput="onTmPredictInput()">
+        <select id="tm-substage" style="width:100%;display:none" onchange="onTmPredictInput()"><option value="1교">1교</option><option value="2교">2교</option></select>
+      </div>
+      <div id="tm-predict" style="font-size:11px;color:var(--t2);line-height:1.5"></div>
     </div>
     <!-- 투두에 날짜 입력 → 월간 캘린더 연동 -->
     <input type="date" id="tm-date" placeholder="캘린더 날짜 (선택)" style="width:100%;margin-bottom:10px">
@@ -1314,7 +1322,7 @@ localStorage.setItem = function(k, v) {
 
 <script>
 // ══════ localStorage ══════
-const KEYS={todos:'ned_todos',works:'ned_works',schedPub:'ned_sched',promos:'ned_promos',authors:'ned_authors',contacts:'ned_contacts',exclusives:'ned_excl',memos:'ned_memos',theme:'ned_theme',calSecs:'ned_catsecs',totalSec:'ned_totalsec',weekly:'ned_weekly',lastDate:'ned_lastdate',weekSecs:'ned_weeksecs',lastWeek:'ned_lastweek'};
+const KEYS={todos:'ned_todos',works:'ned_works',schedPub:'ned_sched',promos:'ned_promos',authors:'ned_authors',contacts:'ned_contacts',exclusives:'ned_excl',memos:'ned_memos',theme:'ned_theme',calSecs:'ned_catsecs',totalSec:'ned_totalsec',weekly:'ned_weekly',lastDate:'ned_lastdate',weekSecs:'ned_weeksecs',lastWeek:'ned_lastweek',history:'ned_taskhistory',dailyCap:'ned_dailycap'};
 function save(k,d){try{localStorage.setItem(k,JSON.stringify(d));}catch(e){}}
 function load(k,def){try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch(e){return def;}}
 
@@ -1328,6 +1336,8 @@ let contacts=load(KEYS.contacts,[]);
 let exclusives=load(KEYS.exclusives,[]);
 let memos=load(KEYS.memos,[]);
 let weeklyTodos=load(KEYS.weekly,[]);
+let taskHistory=load(KEYS.history,[]);      // 마감일 예측용 실적 기록: {type,charCount,sec,date}
+let dailyCapHours=load(KEYS.dailyCap,8);     // 하루 평균 작업 가능 시간(순수 편집 작업)
 
 const stageOrder=['심사고','투고','대기','리뷰','1교','2교','출간'];
 const stageBadge={심사고:'badge-gray',투고:'badge-blue',대기:'badge-purple',리뷰:'badge-blue','1교':'badge-teal','2교':'badge-teal',출간:'badge-green'};
@@ -1336,6 +1346,73 @@ const catLabels={review:'리뷰',edit:'교정',design:'디자인',secondary:'2�
 const catColors={review:'badge-blue',edit:'badge-yellow',design:'badge-amber',secondary:'badge-red',comm:'badge-purple',make:'badge-green',etc:'badge-gray'};
 const catBg={review:'#3b82f6',edit:'#4ecdc4',design:'#f5a623',secondary:'#e94560',comm:'#9b59b6',make:'#16a34a',etc:'#94a3b8'};
 const catCalClass={review:'work-review',edit:'work-edit',design:'work-design',secondary:'work-secondary',comm:'work-comm',make:'work-make',etc:'work-etc'};
+
+// ══════ 마감일 예측(글자수 기반) ══════
+// 글자 수를 입력하는 업무 유형(=시간당 처리 속도가 의미 있는 유형)만 예측 대상으로 삼는다.
+const PREDICT_CATS=['review','edit'];
+const PREDICT_SUBSTAGES={edit:['1교','2교']};
+// 데이터가 부족할 때 쓰는 초기 기본값 (자/시간). 실적이 3건 이상 쌓이면 자동으로 실측치로 대체됨.
+const DEFAULT_RATE={review:12000,edit_1교:9000,edit_2교:11000,edit:10000};
+const DEFAULT_TASK_HOURS=1.5; // 글자수 미입력 기존 업무의 하루 점유시간 추정치(휴리스틱)
+function predictTypeKey(cat,sub){return (cat==='edit'&&sub)?('edit_'+sub):cat;}
+function predictTypeLabel(key){
+  if(key==='edit_1교')return'1교';if(key==='edit_2교')return'2교';
+  return catLabels[key]||key;
+}
+// 최근 실적(최대 8건)의 중앙값을 대표 속도로 사용 → 평균보다 이상치(급하게 몰아친 날 등)에 덜 흔들리면서도
+// 전체 평균보다 최근 작업 습관을 더 잘 반영함
+function getTypeRate(type){
+  const recs=taskHistory.filter(r=>r.type===type).slice(0,8);
+  if(recs.length<3)return null;
+  const rates=recs.map(r=>r.charCount/(r.sec/3600)).sort((a,b)=>a-b);
+  const mid=Math.floor(rates.length/2);
+  const median=rates.length%2?rates[mid]:(rates[mid-1]+rates[mid])/2;
+  return{rate:median,sample:recs.length};
+}
+function estimateHours(type,charCount){
+  const r=getTypeRate(type);
+  const rate=r?r.rate:(DEFAULT_RATE[type]||DEFAULT_RATE.edit);
+  return{hours:charCount/rate,rate,sample:r?r.sample:0,isDefault:!r};
+}
+// 완료된 업무에 글자수가 입력돼 있으면 실적으로 1회만 기록 (재토글 시 중복 방지)
+function recordTaskHistory(t){
+  if(!t.charCount||!t.timerSec||t.timerSec<60||t._histLogged)return;
+  if(!PREDICT_CATS.includes(t.cat))return;
+  taskHistory.unshift({type:predictTypeKey(t.cat,t.subStage),charCount:t.charCount,sec:t.timerSec,date:isoDate(new Date())});
+  if(taskHistory.length>500)taskHistory.length=500;
+  t._histLogged=true;
+  save(KEYS.history,taskHistory);
+}
+// 특정 날짜에 이미 잡혀있는(미완료) 업무들의 예상 점유시간 합
+function getDayCommittedHours(dateStr,excludeId){
+  let sum=0;
+  todos.forEach(t=>{
+    if(t.done||t.date!==dateStr||t.id===excludeId)return;
+    if(t.charCount&&PREDICT_CATS.includes(t.cat)){
+      sum+=estimateHours(predictTypeKey(t.cat,t.subStage),t.charCount).hours;
+    }else{
+      sum+=DEFAULT_TASK_HOURS;
+    }
+  });
+  return sum;
+}
+// 오늘부터 하루씩 여유시간을 채워나가며, 예상 소요시간을 다 소화할 수 있는 첫 날짜를 마감일로 제안
+function suggestDeadline(type,charCount,excludeId){
+  const est=estimateHours(type,charCount);
+  let remaining=est.hours;
+  const d=new Date();
+  for(let i=0;i<90;i++){
+    const ds=isoDate(d);
+    const committed=getDayCommittedHours(ds,excludeId);
+    const free=Math.max(0,dailyCapHours-committed);
+    if(free>0){
+      if(remaining<=free+1e-9)return{date:ds,...est};
+      remaining-=free;
+    }
+    d.setDate(d.getDate()+1);
+  }
+  return{date:null,...est};
+}
 const platBadge={리디:'badge-red',카카오:'badge-amber',시리즈:'badge-blue',북큐브:'badge-teal',교보문고:'badge-green',알라딘:'badge-teal',봄툰:'badge-purple',예스24:'badge-orange'};
 const statusBadge2={확정:'badge-green',검토중:'badge-amber',대기:'badge-gray'};
 
@@ -1726,6 +1803,7 @@ function dropTodoToUpcoming(e){
 function toggleTodo(id){
   const t=todos.find(x=>x.id===id);if(!t)return;
   t.done=!t.done;
+  if(t.done)recordTaskHistory(t); // 완료 시점의 실제 소요시간을 예측 데이터로 축적
   if(t.linkedId){const wt=weeklyTodos.find(x=>x.id===t.linkedId);if(wt){wt.done=t.done;save(KEYS.weekly,weeklyTodos);}}
   save(KEYS.todos,todos);renderTodos();renderWeekly();
 }
@@ -1738,20 +1816,55 @@ function openTodoModal(id){
   document.getElementById('tm-text').value=t?t.text:'';
   document.getElementById('tm-cat').value=t?t.cat:'review';
   document.getElementById('tm-pri').value=t?t.priority:'med';
+  document.getElementById('tm-char').value=t&&t.charCount?t.charCount:'';
+  document.getElementById('tm-substage').value=t&&t.subStage?t.subStage:'1교';
   const today=new Date();
   const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   document.getElementById('tm-date').value=t?t.date||'':todayStr;
   document.getElementById('tm-del-btn').style.display=id?'inline-block':'none';
   document.getElementById('todo-modal').style.display='flex';
+  onTmCatChange();
   setTimeout(()=>document.getElementById('tm-text').focus(),50);
 }
 function closeTodoModal(){document.getElementById('todo-modal').style.display='none';editingTodoId=null;}
+// 카테고리에 따라 글자수/예측 UI 및 1교·2교 세부단계 노출 여부 전환
+function onTmCatChange(){
+  const cat=document.getElementById('tm-cat').value;
+  const box=document.getElementById('tm-predict-box');
+  const sub=document.getElementById('tm-substage');
+  box.style.display=PREDICT_CATS.includes(cat)?'block':'none';
+  sub.style.display=cat==='edit'?'block':'none';
+  onTmPredictInput();
+}
+// 글자수 입력 시 실시간으로 예상 소요시간·추천 마감일 표시
+function onTmPredictInput(){
+  const box=document.getElementById('tm-predict');
+  const cat=document.getElementById('tm-cat').value;
+  const sub=document.getElementById('tm-substage').value;
+  const charCount=parseInt(document.getElementById('tm-char').value)||0;
+  if(!PREDICT_CATS.includes(cat)||!charCount){box.innerHTML='';return;}
+  const type=predictTypeKey(cat,sub);
+  const sug=suggestDeadline(type,charCount,editingTodoId);
+  const rateTxt=sug.isDefault?`기본값 ${Math.round(sug.rate).toLocaleString()}자/시간 (실적 부족)`:`실측 ${Math.round(sug.rate).toLocaleString()}자/시간 (최근 ${sug.sample}건 기준)`;
+  const hoursTxt=sug.hours<1?`${Math.round(sug.hours*60)}분`:`${sug.hours.toFixed(1)}시간`;
+  const dateTxt=sug.date?sug.date:'90일 내 여유 없음';
+  box.innerHTML=`예상 소요 <b style="color:var(--t1)">${hoursTxt}</b> · ${rateTxt}<br>`+
+    `추천 마감일 <b style="color:var(--acc)">${dateTxt}</b> `+
+    `(하루 ${dailyCapHours}시간 기준 <span style="cursor:pointer;text-decoration:underline" onclick="editDailyCap()">변경</span>) `+
+    (sug.date?`<span style="color:var(--acc);cursor:pointer;text-decoration:underline" onclick="document.getElementById('tm-date').value='${sug.date}'">적용</span>`:'');
+}
+function editDailyCap(){
+  const v=parseFloat(prompt('하루 평균 작업 가능 시간(시간)을 입력하세요',dailyCapHours));
+  if(!isNaN(v)&&v>0){dailyCapHours=v;save(KEYS.dailyCap,dailyCapHours);onTmPredictInput();}
+}
 function saveTodo(){
   const text=document.getElementById('tm-text').value.trim();if(!text)return;
   const cat=document.getElementById('tm-cat').value,priority=document.getElementById('tm-pri').value,date=document.getElementById('tm-date').value;
+  const charCount=parseInt(document.getElementById('tm-char').value)||null;
+  const subStage=cat==='edit'?document.getElementById('tm-substage').value:null;
   if(editingTodoId){
     const t=todos.find(x=>x.id===editingTodoId);
-    if(t){t.text=text;t.cat=cat;t.priority=priority;t.date=date;}
+    if(t){t.text=text;t.cat=cat;t.priority=priority;t.date=date;t.charCount=charCount;t.subStage=subStage;}
     if(t){
       if(date){
         // 날짜가 있는 경우: 위클리 항목이 있으면 갱신, 없으면(또는 유실됐으면) 새로 생성
@@ -1777,7 +1890,7 @@ function saveTodo(){
     }
   } else {
     const newId=Date.now();
-    const todoObj={id:newId,text,cat,done:false,priority,timerSec:0,timerSecBase:0,running:false,date};
+    const todoObj={id:newId,text,cat,done:false,priority,timerSec:0,timerSecBase:0,running:false,date,charCount,subStage};
     if(date){
       const d=new Date(date);
       const dow=d.getDay();
@@ -2915,6 +3028,8 @@ function reloadAppData(){
   exclusives=load(KEYS.exclusives,[]);
   memos=load(KEYS.memos,[]);
   weeklyTodos=load(KEYS.weekly,[]);
+  taskHistory=load(KEYS.history,[]);
+  dailyCapHours=load(KEYS.dailyCap,8);
   timeBlocks=load('ned_timeblocks',[]);
   totalLoggedSec=load(KEYS.totalSec,0);
   Object.assign(catSecs,load(KEYS.calSecs,{review:0,edit:0,design:0,secondary:0,comm:0,etc:0}));
