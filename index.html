@@ -967,8 +967,17 @@ localStorage.setItem = function(k, v) {
     </div>
     <input type="text" id="wt-text" placeholder="내용" style="width:100%;margin-bottom:8px">
     <div id="wt-work-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-      <select id="wt-cat" style="width:100%"><option value="review">리뷰</option><option value="edit">교정</option><option value="design">디자인</option><option value="secondary">2차</option><option value="comm">소통</option><option value="make">제작</option><option value="etc">기타</option></select>
-      <input type="date" id="wt-date" style="width:100%">
+      <select id="wt-cat" style="width:100%" onchange="onWtCatChange()"><option value="review">리뷰</option><option value="edit">교정</option><option value="design">디자인</option><option value="secondary">2차</option><option value="comm">소통</option><option value="make">제작</option><option value="etc">기타</option></select>
+      <select id="wt-pri" style="width:100%"><option value="high">높음 (HIGH)</option><option value="med" selected>보통</option><option value="low">낮음</option></select>
+      <input type="date" id="wt-date" style="width:100%;grid-column:1/3">
+    </div>
+    <!-- 글자수 기반 마감일 예측: 리뷰/교정 업무일 때만 노출 -->
+    <div id="wt-predict-box" style="display:none;margin-bottom:8px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">
+        <input type="number" id="wt-char" min="0" placeholder="글자 수 (선택)" style="width:100%" oninput="onWtPredictInput()">
+        <select id="wt-substage" style="width:100%;display:none" onchange="onWtPredictInput()"><option value="1교">1교</option><option value="2교">2교</option></select>
+      </div>
+      <div id="wt-predict" style="font-size:11px;color:var(--t2);line-height:1.5"></div>
     </div>
     <div id="wt-personal-fields" style="display:none;margin-bottom:8px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">
@@ -1635,13 +1644,13 @@ function copyTodo(id){
   const today=new Date();
   const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   const newId=Date.now();
-  const copy={id:newId,text:t.text,cat:t.cat,done:false,priority:t.priority,timerSec:0,timerSecBase:0,running:false,date:todayStr,manualOrder:null};
+  const copy={id:newId,text:t.text,cat:t.cat,done:false,priority:t.priority,charCount:t.charCount,subStage:t.subStage,timerSec:0,timerSecBase:0,running:false,date:todayStr,manualOrder:null};
   // 위클리 연동
   const dow=today.getDay();
   const wsDate=new Date(today.getFullYear(),today.getMonth(),today.getDate()-dow);
   const ws=isoDate(wsDate);
   const wtId=newId+1;
-  weeklyTodos.push({id:wtId,text:t.text,cat:t.cat,day:dow,weekStart:ws,done:false,type:'work',_dayBase:'sun',linkedId:newId});
+  weeklyTodos.push({id:wtId,text:t.text,cat:t.cat,day:dow,weekStart:ws,done:false,type:'work',_dayBase:'sun',linkedId:newId,priority:t.priority,charCount:t.charCount,subStage:t.subStage});
   copy.linkedId=wtId;
   const idx=todos.findIndex(x=>x.id===id);
   todos.splice(idx+1,0,copy);
@@ -1784,12 +1793,12 @@ function dropTodoToToday(e){
     if(wt){wt.day=dow;wt.weekStart=wsStr;}
     else{
       const wtId=Date.now()+1;
-      weeklyTodos.push({id:wtId,text:t.text,cat:t.cat,day:dow,weekStart:wsStr,done:t.done,type:'work',_dayBase:'sun',linkedId:id});
+      weeklyTodos.push({id:wtId,text:t.text,cat:t.cat,day:dow,weekStart:wsStr,done:t.done,type:'work',_dayBase:'sun',linkedId:id,priority:t.priority,charCount:t.charCount,subStage:t.subStage});
       t.linkedId=wtId;
     }
   } else {
     const wtId=Date.now()+1;
-    weeklyTodos.push({id:wtId,text:t.text,cat:t.cat,day:dow,weekStart:wsStr,done:t.done,type:'work',_dayBase:'sun',linkedId:id});
+    weeklyTodos.push({id:wtId,text:t.text,cat:t.cat,day:dow,weekStart:wsStr,done:t.done,type:'work',_dayBase:'sun',linkedId:id,priority:t.priority,charCount:t.charCount,subStage:t.subStage});
     t.linkedId=wtId;
   }
   save(KEYS.todos,todos);save(KEYS.weekly,weeklyTodos);renderTodos();renderWeekly();renderCalendar();
@@ -1855,7 +1864,7 @@ function onTmPredictInput(){
 }
 function editDailyCap(){
   const v=parseFloat(prompt('하루 평균 작업 가능 시간(시간)을 입력하세요',dailyCapHours));
-  if(!isNaN(v)&&v>0){dailyCapHours=v;save(KEYS.dailyCap,dailyCapHours);onTmPredictInput();}
+  if(!isNaN(v)&&v>0){dailyCapHours=v;save(KEYS.dailyCap,dailyCapHours);onTmPredictInput();if(typeof onWtPredictInput==='function')onWtPredictInput();}
 }
 function saveTodo(){
   const text=document.getElementById('tm-text').value.trim();if(!text)return;
@@ -1874,11 +1883,11 @@ function saveTodo(){
         const weekStartStr=`${dws.getFullYear()}-${String(dws.getMonth()+1).padStart(2,"0")}-${String(dws.getDate()).padStart(2,"0")}`;
         let wt=t.linkedId?weeklyTodos.find(x=>x.id===t.linkedId):null;
         if(wt){
-          wt.text=text;wt.cat=cat;wt.day=dow;wt.weekStart=weekStartStr;wt.type='work';wt._dayBase='sun';
+          wt.text=text;wt.cat=cat;wt.day=dow;wt.weekStart=weekStartStr;wt.type='work';wt._dayBase='sun';wt.priority=priority;wt.charCount=charCount;wt.subStage=subStage;
         } else {
           // linkedId가 없거나, 있었지만 실제 항목이 사라진 경우 → 새로 생성
           const wtId=Date.now()+1;
-          weeklyTodos.push({id:wtId,text,cat,day:dow,weekStart:weekStartStr,done:t.done,type:'work',_dayBase:'sun',linkedId:editingTodoId});
+          weeklyTodos.push({id:wtId,text,cat,day:dow,weekStart:weekStartStr,done:t.done,type:'work',_dayBase:'sun',linkedId:editingTodoId,priority,charCount,subStage});
           t.linkedId=wtId;
         }
       } else if(t.linkedId){
@@ -1897,7 +1906,7 @@ function saveTodo(){
       const dws=new Date(d);dws.setDate(d.getDate()-d.getDay());dws.setHours(0,0,0,0);
       const weekStartStr=`${dws.getFullYear()}-${String(dws.getMonth()+1).padStart(2,"0")}-${String(dws.getDate()).padStart(2,"0")}`;
       const wtId=newId+1;
-      weeklyTodos.push({id:wtId,text,cat,day:dow,weekStart:weekStartStr,done:false,type:'work',_dayBase:'sun',linkedId:newId});
+      weeklyTodos.push({id:wtId,text,cat,day:dow,weekStart:weekStartStr,done:false,type:'work',_dayBase:'sun',linkedId:newId,priority,charCount,subStage});
       todoObj.linkedId=wtId;
       save(KEYS.weekly,weeklyTodos);
     }
@@ -2879,8 +2888,12 @@ function openWeeklyModalOnDate(dateStr){
   document.getElementById('wt-id').value='';
   document.getElementById('wt-text').value='';
   document.getElementById('wt-cat').value='review';
+  document.getElementById('wt-pri').value='med';
+  document.getElementById('wt-char').value='';
+  document.getElementById('wt-substage').value='1교';
   document.getElementById('wt-date').value=dateStr;
   document.getElementById('wt-del-btn').style.display='none';
+  setWtType('work');
   document.getElementById('weekly-modal').style.display='flex';
   setTimeout(()=>document.getElementById('wt-text').focus(),50);
 }
@@ -2892,6 +2905,9 @@ function openWeeklyModal(id,defaultDay=0){
   document.getElementById('wt-id').value=id||'';
   document.getElementById('wt-text').value=t?t.text:'';
   document.getElementById('wt-cat').value=t?t.cat:'review';
+  document.getElementById('wt-pri').value=t&&t.priority?t.priority:'med';
+  document.getElementById('wt-char').value=t&&t.charCount?t.charCount:'';
+  document.getElementById('wt-substage').value=t&&t.subStage?t.subStage:'1교';
   // 날짜 input: 수정 시 기존 날짜, 추가 시 해당 요일 날짜
   if(t&&t.weekStart&&t.day!=null){
     const ws=t.weekStart.split('-');
@@ -2923,6 +2939,35 @@ function setWtType(type){
   document.getElementById('wt-type-work').style.color=isWork?'#fff':'var(--t2)';
   document.getElementById('wt-type-personal').style.background=isWork?'var(--bg2)':'#fce7f3';
   document.getElementById('wt-type-personal').style.color=isWork?'var(--t2)':'#be185d';
+  if(isWork)onWtCatChange();
+}
+// 카테고리에 따라 글자수/예측 UI 및 1교·2교 세부단계 노출 여부 전환 (위클리 모달용)
+function onWtCatChange(){
+  const cat=document.getElementById('wt-cat').value;
+  const box=document.getElementById('wt-predict-box');
+  const sub=document.getElementById('wt-substage');
+  box.style.display=PREDICT_CATS.includes(cat)?'block':'none';
+  sub.style.display=cat==='edit'?'block':'none';
+  onWtPredictInput();
+}
+// 글자수 입력 시 실시간으로 예상 소요시간·추천 마감일 표시 (위클리 모달용)
+function onWtPredictInput(){
+  const box=document.getElementById('wt-predict');
+  const cat=document.getElementById('wt-cat').value;
+  const sub=document.getElementById('wt-substage').value;
+  const charCount=parseInt(document.getElementById('wt-char').value)||0;
+  if(!PREDICT_CATS.includes(cat)||!charCount){box.innerHTML='';return;}
+  const type=predictTypeKey(cat,sub);
+  const wt=editingWeeklyId?weeklyTodos.find(x=>x.id===editingWeeklyId):null;
+  const excludeId=wt?wt.linkedId:null;
+  const sug=suggestDeadline(type,charCount,excludeId);
+  const rateTxt=sug.isDefault?`기본값 ${Math.round(sug.rate).toLocaleString()}자/시간 (실적 부족)`:`실측 ${Math.round(sug.rate).toLocaleString()}자/시간 (최근 ${sug.sample}건 기준)`;
+  const hoursTxt=sug.hours<1?`${Math.round(sug.hours*60)}분`:`${sug.hours.toFixed(1)}시간`;
+  const dateTxt=sug.date?sug.date:'90일 내 여유 없음';
+  box.innerHTML=`예상 소요 <b style="color:var(--t1)">${hoursTxt}</b> · ${rateTxt}<br>`+
+    `추천 마감일 <b style="color:var(--acc)">${dateTxt}</b> `+
+    `(하루 ${dailyCapHours}시간 기준 <span style="cursor:pointer;text-decoration:underline" onclick="editDailyCap()">변경</span>) `+
+    (sug.date?`<span style="color:var(--acc);cursor:pointer;text-decoration:underline" onclick="document.getElementById('wt-date').value='${sug.date}'">적용</span>`:'');
 }
 function closeWeeklyModal(){document.getElementById('weekly-modal').style.display='none';editingWeeklyId=null;}
 function saveWeeklyTodo(){
@@ -2955,30 +3000,33 @@ function saveWeeklyTodo(){
   const cat=document.getElementById('wt-cat').value;
   const dateStr=document.getElementById('wt-date').value;
   if(!dateStr)return;
+  const priority=document.getElementById('wt-pri').value;
+  const charCount=parseInt(document.getElementById('wt-char').value)||null;
+  const subStage=cat==='edit'?document.getElementById('wt-substage').value:null;
   const dateObj=new Date(dateStr+'T00:00:00');
   const dow=dateObj.getDay();
   const wsDate=new Date(dateObj.getFullYear(),dateObj.getMonth(),dateObj.getDate()-dow);
   const ws=isoDate(wsDate);
   if(editingWeeklyId){
     const wt=weeklyTodos.find(x=>x.id===editingWeeklyId);
-    if(wt){wt.text=text;wt.cat=cat;wt.day=dow;wt.weekStart=ws;wt.type='work';wt._dayBase='sun';}
+    if(wt){wt.text=text;wt.cat=cat;wt.day=dow;wt.weekStart=ws;wt.type='work';wt._dayBase='sun';wt.priority=priority;wt.charCount=charCount;wt.subStage=subStage;}
     if(wt){
       let t=wt.linkedId?todos.find(x=>x.id===wt.linkedId):null;
       if(t){
-        t.text=text;t.cat=cat;t.date=dateStr;
+        t.text=text;t.cat=cat;t.date=dateStr;t.priority=priority;t.charCount=charCount;t.subStage=subStage;
       } else {
         // linkedId가 없거나, 있었지만 실제 데일리 항목이 사라진 경우 → 새로 생성
         const todoId=Date.now()+1;
-        todos.unshift({id:todoId,text,cat,done:wt.done,priority:'med',timerSec:0,timerSecBase:0,running:false,date:dateStr,linkedId:editingWeeklyId});
+        todos.unshift({id:todoId,text,cat,done:wt.done,priority,charCount,subStage,timerSec:0,timerSecBase:0,running:false,date:dateStr,linkedId:editingWeeklyId});
         wt.linkedId=todoId;
       }
       save(KEYS.todos,todos);
     }
   } else {
     const newId=Date.now();
-    const wtObj={id:newId,text,cat,day:dow,weekStart:ws,done:false,type:'work',_dayBase:'sun'};
+    const wtObj={id:newId,text,cat,day:dow,weekStart:ws,done:false,type:'work',_dayBase:'sun',priority,charCount,subStage};
     const todoId=newId+1;
-    todos.unshift({id:todoId,text,cat,done:false,priority:'med',timerSec:0,timerSecBase:0,running:false,date:dateStr,linkedId:newId});
+    todos.unshift({id:todoId,text,cat,done:false,priority,charCount,subStage,timerSec:0,timerSecBase:0,running:false,date:dateStr,linkedId:newId});
     wtObj.linkedId=todoId;
     weeklyTodos.push(wtObj);
     save(KEYS.todos,todos);
