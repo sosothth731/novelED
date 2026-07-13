@@ -127,8 +127,6 @@ input[type=date]{cursor:pointer}
 .sched-cal-event.sc-teal{background:#dcfce7;color:#15803d}
 .sched-cal-event.sc-amber{background:#fef9c3;color:#a16207}
 .sched-cal-event.sc-gray{background:#f1efe8;color:#5f5e5a}
-.pending-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 9px;border-radius:99px;border:1px dashed #9a9690;background:#f4f3ef;color:#6b6863;white-space:nowrap}
-.pending-chip .pc-plat{opacity:.7;font-size:10px}
 .tab-row{display:flex;margin-bottom:1rem;border-bottom:0.5px solid var(--b1)}
 .tab{font-size:13px;padding:6px 14px;cursor:pointer;color:var(--t2);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
 .tab:hover{color:var(--t1)}
@@ -1147,7 +1145,6 @@ localStorage.setItem = function(k, v) {
         <button class="btn" onclick="changeSchedMonth(1)">→</button>
       </div>
     </div>
-    <div id="sched-pending-banner" style="margin-bottom:.75rem"></div>
     <div class="cal-grid"><div class="cal-day-lbl">일</div><div class="cal-day-lbl">월</div><div class="cal-day-lbl">화</div><div class="cal-day-lbl">수</div><div class="cal-day-lbl">목</div><div class="cal-day-lbl">금</div><div class="cal-day-lbl">토</div></div>
     <div class="cal-grid" id="sched-cal-body"></div>
   </div>
@@ -1157,7 +1154,6 @@ localStorage.setItem = function(k, v) {
       <div style="font-size:16px;font-weight:500" id="sched-year-title"></div>
       <button class="btn" onclick="changeSchedYear(1)">→</button>
     </div>
-    <div id="sched-pending-banner-year" style="margin-bottom:.75rem"></div>
     <div id="sched-year-body" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px"></div>
   </div>
 </div>
@@ -2233,18 +2229,6 @@ function getKoreanHolidays(year){
   return new Set([...fixed,...(lunar[year]||[])]);
 }
 
-// ══════ 심사고/투고 단계 작품 — 확정 날짜 없이 캘린더 상단에 노출 ══════
-// (아직 날짜가 안 잡혀도 파이프라인이 얼마나 차있는지 한눈에 보기 위함)
-const stageEmoji={'심사고':'🔍','투고':'✉️'};
-function renderPendingBanner(containerId){
-  const el=document.getElementById(containerId);if(!el)return;
-  const pending=works.filter(w=>w.stage==='심사고'||w.stage==='투고');
-  if(!pending.length){el.innerHTML='';return;}
-  el.innerHTML=`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:.5rem .625rem;background:var(--bg2);border-radius:var(--r)">
-    <span style="font-size:11px;color:var(--t2);font-weight:500;margin-right:2px">미확정 ${pending.length}건</span>
-    ${pending.map(w=>`<span class="pending-chip" title="단계: ${w.stage}" onclick="openWorkModal(${w.id})" style="cursor:pointer">${stageEmoji[w.stage]||'📝'} ${w.title}<span class="pc-plat">[${w.platform||'-'}]</span></span>`).join('')}
-  </div>`;
-}
 function renderSchedCal(){
   const el=document.getElementById('sched-cal-title');if(el)el.textContent=`${schedCalYear}년 ${schedCalMonth+1}월`;
   const body=document.getElementById('sched-cal-body');if(!body)return;
@@ -2271,7 +2255,6 @@ function renderSchedCal(){
     body.appendChild(div);
   }
   const rem=(7-(off+dim)%7)%7;for(let i=1;i<=rem;i++){const d=document.createElement('div');d.className='cal-day other-month';d.innerHTML=`<div class="cal-day-num">${i}</div>`;body.appendChild(d);}
-  renderPendingBanner('sched-pending-banner');
 }
 function changeSchedMonth(dir){schedCalMonth+=dir;if(schedCalMonth>11){schedCalMonth=0;schedCalYear++;}if(schedCalMonth<0){schedCalMonth=11;schedCalYear--;}renderSchedCal();}
 function showSchedView(v,el){
@@ -2279,7 +2262,6 @@ function showSchedView(v,el){
   document.getElementById('sched-cal-view').style.display=v==='cal'?'block':'none';
   document.getElementById('sched-year-view').style.display=v==='year'?'block':'none';
   document.querySelectorAll('#sched-view-tabs .tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');
-  if(v==='cal')renderPendingBanner('sched-pending-banner');
   if(v==='year')renderSchedYear();
 }
 
@@ -2326,7 +2308,6 @@ function renderSchedYear(){
       }).join(''):`<div style="font-size:11px;color:var(--t2);padding:.25rem 0">출간 예정 없음</div>`}
     </div>`;
   }).join('');
-  renderPendingBanner('sched-pending-banner-year');
 }
 function openSchedModal(id){
   editingSchedId=id;const s=id?schedPub.find(x=>x.id===id):null;
