@@ -2735,10 +2735,29 @@ function startResizeBlock(e,id){
     document.removeEventListener('mousemove',onMove);
     document.removeEventListener('mouseup',onUp);
     save('ned_timeblocks',timeBlocks);
+    syncTodoTimeFromBlock(b);
     renderTimeSchedule();
   };
   document.addEventListener('mousemove',onMove);
   document.addEventListener('mouseup',onUp);
+}
+// 일정표 블록을 드래그로 늘리거나 줄이면, 연결된 할 일의 기록 시간도 그만큼 같이 보정
+// (타이머 끄는 걸 깜박했을 때 여기서 실제 시간에 맞게 줄여주면 됨)
+function syncTodoTimeFromBlock(b){
+  if(!b.todoId)return;
+  const t=todos.find(x=>x.id===b.todoId);if(!t)return;
+  const newSec=Math.max(0,Math.round(b.duration*60));
+  const delta=newSec-(t.timerSec||0);
+  if(delta===0)return;
+  t.timerSec=newSec;
+  t.timerSecBase=newSec;
+  // 카테고리별·주간 누적치도 같은 만큼 보정 (음수로 내려가지 않게)
+  catSecs[t.cat]=Math.max(0,(catSecs[t.cat]||0)+delta);
+  totalLoggedSec=Math.max(0,totalLoggedSec+delta);
+  const todayDow=new Date().getDay();
+  if(weekSecs[todayDow])weekSecs[todayDow][t.cat]=Math.max(0,(weekSecs[todayDow][t.cat]||0)+delta);
+  save(KEYS.todos,todos);save(KEYS.calSecs,catSecs);save(KEYS.totalSec,totalLoggedSec);save(KEYS.weekSecs,weekSecs);
+  renderTodos();syncTimerDisplays();
 }
 
 function promptTimeBlock(hour,minute){
