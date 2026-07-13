@@ -2341,6 +2341,17 @@ if(editingSchedId){const s=schedPub.find(x=>x.id===editingSchedId);if(s)Object.a
     if(obj.stage) linkedWork.stage = obj.stage;
     save(KEYS.works, works);
     renderWorks();
+  } else {
+    // 작품 진행현황에 아직 없는 작품이면 새로 생성 (장르는 기본값, 이후 작품 모달에서 수정 가능)
+    const defGenre='g-romance';
+    works.push({
+      id:Date.now()+3,title:obj.title,author:obj.author,
+      genre:defGenre,gLabel:genreLabels[defGenre]||'',
+      stage:obj.stage||'심사고',platform:obj.platform,
+      deadline:(obj.promo&&obj.promo!=='-')?obj.promo:'',pubdate:obj.date||''
+    });
+    save(KEYS.works,works);
+    renderWorks();
   }
   window._smOrigTitle = '';
   // 단계='출간'이면 독점 정보 시트 자동 추가
