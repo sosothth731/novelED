@@ -127,7 +127,6 @@ input[type=date]{cursor:pointer}
 .sched-cal-event.sc-teal{background:#dcfce7;color:#15803d}
 .sched-cal-event.sc-amber{background:#fef9c3;color:#a16207}
 .sched-cal-event.sc-gray{background:#f1efe8;color:#5f5e5a}
-.sched-cal-event.sc-pending{background:repeating-linear-gradient(45deg,#f5f4ef,#f5f4ef 4px,#eae8e1 4px,#eae8e1 8px);border:1px dashed #9a9690;color:#726e68;font-style:italic}
 .pending-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 9px;border-radius:99px;border:1px dashed #9a9690;background:#f4f3ef;color:#6b6863;white-space:nowrap}
 .pending-chip .pc-plat{opacity:.7;font-size:10px}
 .tab-row{display:flex;margin-bottom:1rem;border-bottom:0.5px solid var(--b1)}
@@ -744,6 +743,9 @@ localStorage.setItem = function(k, v) {
   <div class="nav-item" onclick="showPage('contacts',this)">
     <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>컨택 현황
   </div>
+  <div class="nav-item" onclick="showPage('memo',this)">
+    <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5z"/></svg>플랫폼 메모
+  </div>
 
   <!-- ═══ Firebase Auth UI ═══ -->
   <div style="padding:.75rem 1.25rem;border-top:0.5px solid rgba(255,255,255,.1);margin-top:auto">
@@ -1150,6 +1152,7 @@ localStorage.setItem = function(k, v) {
     </div>
     <div class="cal-grid"><div class="cal-day-lbl">일</div><div class="cal-day-lbl">월</div><div class="cal-day-lbl">화</div><div class="cal-day-lbl">수</div><div class="cal-day-lbl">목</div><div class="cal-day-lbl">금</div><div class="cal-day-lbl">토</div></div>
     <div class="cal-grid" id="sched-cal-body"></div>
+    <div id="sched-pending-list"></div>
   </div>
   <div id="sched-year-view" style="display:none" class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
@@ -1305,6 +1308,23 @@ localStorage.setItem = function(k, v) {
   </div>
 </div>
 
+<div id="page-memo" class="page">
+  <div class="page-title">플랫폼 메모</div>
+  <input type="text" id="memo-search" placeholder="모든 플랫폼 메모에서 검색..." style="width:100%;margin-bottom:10px" oninput="onMemoSearch()">
+  <div id="memo-search-results" style="margin-bottom:10px"></div>
+  <div id="memo-main">
+  <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap" id="memo-tabs"></div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+      <div style="font-size:14px;font-weight:500" id="memo-tab-title"></div>
+      <span style="font-size:11px;color:var(--t2)" id="memo-updated"></span>
+    </div>
+    <textarea id="memo-text" placeholder="이 플랫폼 관련 메모를 자유롭게 적어두세요 (담당자, 정산 규정, 프로모션 신청 조건 등)" style="width:100%;min-height:280px;resize:vertical;font-size:13px;line-height:1.7" oninput="onMemoInput()"></textarea>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap" id="memo-preview-row"></div>
+  </div>
+</div>
+
 <div id="contact-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)closeContactModal()" onkeydown="if(event.key==='Enter'&&event.target.tagName!=='TEXTAREA'&&event.target.tagName!=='SELECT'){event.stopPropagation();saveContact()}">
   <div class="card" style="width:500px;max-width:92vw">
     <div style="font-size:15px;font-weight:500;margin-bottom:1rem" id="contact-modal-title">컨택 등록</div>
@@ -1334,7 +1354,7 @@ localStorage.setItem = function(k, v) {
 
 <script>
 // ══════ localStorage ══════
-const KEYS={todos:'ned_todos',works:'ned_works',schedPub:'ned_sched',promos:'ned_promos',authors:'ned_authors',contacts:'ned_contacts',exclusives:'ned_excl',memos:'ned_memos',theme:'ned_theme',calSecs:'ned_catsecs',totalSec:'ned_totalsec',weekly:'ned_weekly',lastDate:'ned_lastdate',weekSecs:'ned_weeksecs',lastWeek:'ned_lastweek',history:'ned_taskhistory',dailyCap:'ned_dailycap'};
+const KEYS={todos:'ned_todos',works:'ned_works',schedPub:'ned_sched',promos:'ned_promos',authors:'ned_authors',contacts:'ned_contacts',exclusives:'ned_excl',memos:'ned_memos',theme:'ned_theme',calSecs:'ned_catsecs',totalSec:'ned_totalsec',weekly:'ned_weekly',lastDate:'ned_lastdate',weekSecs:'ned_weeksecs',lastWeek:'ned_lastweek',history:'ned_taskhistory',dailyCap:'ned_dailycap',platMemos:'ned_platmemos'};
 function save(k,d){try{localStorage.setItem(k,JSON.stringify(d));}catch(e){}}
 function load(k,def){try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch(e){return def;}}
 
@@ -1350,6 +1370,9 @@ let memos=load(KEYS.memos,[]);
 let weeklyTodos=load(KEYS.weekly,[]);
 let taskHistory=load(KEYS.history,[]);      // 마감일 예측용 실적 기록: {type,charCount,sec,date}
 let dailyCapHours=load(KEYS.dailyCap,8);     // 하루 평균 작업 가능 시간(순수 편집 작업)
+// 플랫폼별 메모: {"네이버":{text:"...",updated:"2026-07-14T14:20:00"}, ...}
+let platMemos=load(KEYS.platMemos,{'네이버':{text:'',updated:''},'리디':{text:'',updated:''},'카카오':{text:'',updated:''}});
+let curMemoTab=Object.keys(platMemos)[0]||'네이버';
 
 const stageOrder=['심사고','투고','대기','리뷰','1교','2교','출간'];
 const stageBadge={심사고:'badge-gray',투고:'badge-blue',대기:'badge-purple',리뷰:'badge-blue','1교':'badge-teal','2교':'badge-teal',출간:'badge-green'};
@@ -1588,6 +1611,102 @@ function addMemo(){
   save(KEYS.memos,memos);renderMemos();
 }
 function deleteMemo(id){memos=memos.filter(m=>m.id!==id);save(KEYS.memos,memos);renderMemos();}
+
+// ══════ 플랫폼별 메모 — 탭 전환 + 자유 노트 + 자동저장 ══════
+function fmtMemoTime(iso){
+  if(!iso)return'';
+  const d=new Date(iso);
+  return`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function renderMemoTabs(){
+  const el=document.getElementById('memo-tabs');if(!el)return;
+  const names=Object.keys(platMemos);
+  if(!names.includes(curMemoTab))curMemoTab=names[0]||'';
+  el.innerHTML=names.map(n=>`<div class="tab${n===curMemoTab?' active':''}" onclick="switchMemoTab('${n}')" style="padding:7px 16px;font-size:13px;cursor:pointer">${n}</div>`).join('')+
+    `<div class="tab" onclick="addMemoPlatform()" style="padding:7px 16px;font-size:13px;border-style:dashed;color:var(--t2);cursor:pointer">+ 추가</div>`;
+}
+function renderMemoPage(){
+  renderMemoTabs();
+  const cur=platMemos[curMemoTab]||{text:'',updated:''};
+  document.getElementById('memo-tab-title').textContent=`${curMemoTab} 메모`;
+  document.getElementById('memo-updated').textContent=cur.updated?`마지막 수정 ${fmtMemoTime(cur.updated)}`:'';
+  document.getElementById('memo-text').value=cur.text||'';
+  const prev=document.getElementById('memo-preview-row');
+  const others=Object.keys(platMemos).filter(n=>n!==curMemoTab);
+  prev.innerHTML=others.map(n=>{
+    const m=platMemos[n];
+    return`<div style="flex:1;min-width:140px;background:var(--bg1);border-radius:8px;padding:.625rem .875rem;font-size:12px;color:var(--t2);cursor:pointer" onclick="switchMemoTab('${n}')">${n} ${m.updated?fmtMemoTime(m.updated)+' 수정':'메모 없음'}</div>`;
+  }).join('');
+}
+function switchMemoTab(name){curMemoTab=name;renderMemoPage();}
+// 전체 플랫폼 메모 검색 — 텍스트가 일치하는 플랫폼을 스니펫과 함께 나열, 클릭하면 해당 탭으로 이동+매치 위치 선택
+function onMemoSearch(){
+  const q=document.getElementById('memo-search').value.trim();
+  const resBox=document.getElementById('memo-search-results');
+  const main=document.getElementById('memo-main');
+  if(!q){resBox.innerHTML='';main.style.display='block';return;}
+  main.style.display='none';
+  const ql=q.toLowerCase();
+  const hits=[];
+  Object.keys(platMemos).forEach(name=>{
+    const text=platMemos[name].text||'';
+    const idx=text.toLowerCase().indexOf(ql);
+    if(idx>=0){
+      const start=Math.max(0,idx-25),end=Math.min(text.length,idx+q.length+25);
+      let snippet=text.slice(start,end).replace(/</g,'&lt;');
+      const localIdx=idx-start;
+      snippet=snippet.slice(0,localIdx)+'<mark>'+snippet.slice(localIdx,localIdx+q.length)+'</mark>'+snippet.slice(localIdx+q.length);
+      hits.push({name,snippet:(start>0?'…':'')+snippet+(end<text.length?'…':'')});
+    }
+  });
+  if(!hits.length){resBox.innerHTML=`<div style="font-size:12px;color:var(--t2);padding:.5rem 0">"${q}" 검색 결과 없음</div>`;return;}
+  resBox.innerHTML=hits.map(h=>`<div style="background:var(--bg1);border-radius:8px;padding:.625rem .875rem;margin-bottom:6px;cursor:pointer" onclick="jumpToMemoResult('${h.name}',${JSON.stringify(q)})">
+    <span style="font-size:12px;font-weight:500;color:var(--acc)">${h.name}</span>
+    <span style="font-size:12px;color:var(--t2);margin-left:8px">${h.snippet}</span>
+  </div>`).join('');
+}
+function jumpToMemoResult(name,q){
+  document.getElementById('memo-search').value='';
+  document.getElementById('memo-search-results').innerHTML='';
+  document.getElementById('memo-main').style.display='block';
+  curMemoTab=name;renderMemoPage();
+  const ta=document.getElementById('memo-text');
+  const idx=(ta.value||'').toLowerCase().indexOf((q||'').toLowerCase());
+  if(idx>=0){
+    ta.focus();
+    ta.setSelectionRange(idx,idx+q.length);
+    const before=ta.value.slice(0,idx);
+    const lines=before.split('\n').length;
+    ta.scrollTop=Math.max(0,(lines-3)*18);
+  }
+}
+function addMemoPlatform(){
+  const name=prompt('추가할 플랫폼 이름을 입력하세요');if(!name||!name.trim())return;
+  const n=name.trim();
+  if(platMemos[n]){curMemoTab=n;renderMemoPage();return;}
+  platMemos[n]={text:'',updated:''};
+  save(KEYS.platMemos,platMemos);
+  curMemoTab=n;renderMemoPage();
+}
+let _memoSaveTimer=null;
+function onMemoInput(){
+  const text=document.getElementById('memo-text').value;
+  if(!platMemos[curMemoTab])platMemos[curMemoTab]={text:'',updated:''};
+  platMemos[curMemoTab].text=text;
+  platMemos[curMemoTab].updated=new Date().toISOString();
+  document.getElementById('memo-updated').textContent=`마지막 수정 ${fmtMemoTime(platMemos[curMemoTab].updated)}`;
+  clearTimeout(_memoSaveTimer);
+  _memoSaveTimer=setTimeout(()=>{
+    save(KEYS.platMemos,platMemos);
+    renderMemoTabs(); // 미리보기 갱신 없이 탭만 갱신 (커서 유지)
+    const prev=document.getElementById('memo-preview-row');
+    const others=Object.keys(platMemos).filter(n=>n!==curMemoTab);
+    prev.innerHTML=others.map(n=>{
+      const m=platMemos[n];
+      return`<div style="flex:1;min-width:140px;background:var(--bg1);border-radius:8px;padding:.625rem .875rem;font-size:12px;color:var(--t2);cursor:pointer" onclick="switchMemoTab('${n}')">${n} ${m.updated?fmtMemoTime(m.updated)+' 수정':'메모 없음'}</div>`;
+    }).join('');
+  },500);
+}
 
 // ══════ DEADLINE LIST on dashboard — 투두 마감 기반 ══════
 function renderDeadlineDash(){
@@ -2252,6 +2371,7 @@ function renderSchedCal(){
   const holidays=getKoreanHolidays(schedCalYear);
   const fd=new Date(schedCalYear,schedCalMonth,1).getDay(),off=fd,dim=new Date(schedCalYear,schedCalMonth+1,0).getDate(),pd=new Date(schedCalYear,schedCalMonth,0).getDate();
   const today=new Date();today.setHours(0,0,0,0);
+  const monthPendings=[];
   for(let i=0;i<off;i++){const d=document.createElement('div');d.className='cal-day other-month';d.innerHTML=`<div class="cal-day-num">${pd-off+i+1}</div>`;body.appendChild(d);}
   for(let d=1;d<=dim;d++){
     const div=document.createElement('div');div.className='cal-day';
@@ -2263,17 +2383,32 @@ function renderSchedCal(){
     const isSat=dow===6;
     const numColor=isHoliday||isSun?'#e94560':isSat?'#5a8fa0':'';
     const pubs=schedPub.filter(s=>s.date===dateStr);
-    const pendings=getPendingWorksByDate(dateStr);
+    getPendingWorksByDate(dateStr).forEach(w=>monthPendings.push({...w,_day:d}));
     div.innerHTML=`<div class="cal-day-num" style="${numColor?'color:'+numColor+';':''}">${d}${isHoliday?'<span style="font-size:8px;margin-left:2px;opacity:.7">●</span>':''}</div>`+pubs.map(s=>{
       const dDay=s.date?Math.round((new Date(s.date)-today)/864e5):null;
       const platCls=s.platform==='시리즈'?'sc-teal':s.platform==='리디'?'sc-blue':s.platform==='카카오'?'sc-amber':dDay===null?'sc-gray':dDay<=7?'sc-red':new Date(s.date).getMonth()===schedCalMonth?'sc-blue':'sc-teal';
       return`<div class="sched-cal-event ${platCls}" title="${s.author} · ${s.note}">${s.title} <span style="opacity:.7;font-size:9px">[${s.platform}]</span></div>`;
-    }).join('')+pendings.map(w=>{
-      return`<div class="sched-cal-event sc-pending" title="미확정 · ${w.stage}" onclick="openWorkModal(${w.id})" style="cursor:pointer">${stageEmoji[w.stage]||'📝'} ${w.title} <span style="opacity:.7;font-size:9px">[${w.platform||'-'}·미확정]</span></div>`;
     }).join('');
     body.appendChild(div);
   }
   const rem=(7-(off+dim)%7)%7;for(let i=1;i<=rem;i++){const d=document.createElement('div');d.className='cal-day other-month';d.innerHTML=`<div class="cal-day-num">${i}</div>`;body.appendChild(d);}
+  renderPendingList('sched-pending-list',monthPendings);
+}
+function renderPendingList(containerId,pendings){
+  const el=document.getElementById(containerId);if(!el)return;
+  if(!pendings.length){el.innerHTML='';return;}
+  pendings.sort((a,b)=>a._day-b._day);
+  el.innerHTML=`<div style="margin-top:.875rem;background:var(--bg2);border-radius:var(--rl);padding:.75rem 1rem">
+    <div style="font-size:12px;color:var(--t2);margin-bottom:.5rem">미확정 (심사고·투고) ${pendings.length}건</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${pendings.map(w=>`<div style="display:flex;align-items:center;gap:8px;background:var(--bg1);border:0.5px solid var(--b1);border-radius:8px;padding:6px 10px;cursor:pointer" onclick="openWorkModal(${w.id})">
+        <span style="font-size:13px">${stageEmoji[w.stage]||'📝'}</span>
+        <span style="font-size:11px;color:var(--t2);min-width:26px">${schedCalMonth+1}/${w._day}</span>
+        <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t1)">${w.title}</span>
+        <span style="font-size:11px;color:var(--t2)">${w.platform||'-'} · ${w.stage}</span>
+      </div>`).join('')}
+    </div>
+  </div>`;
 }
 function changeSchedMonth(dir){schedCalMonth+=dir;if(schedCalMonth>11){schedCalMonth=0;schedCalYear++;}if(schedCalMonth<0){schedCalMonth=11;schedCalYear--;}renderSchedCal();}
 function showSchedView(v,el){
@@ -2319,7 +2454,7 @@ function renderSchedYear(){
         <span style="font-size:13px;font-weight:600;color:${isCurrent?'var(--acc)':'var(--t1)'}">${mName}</span>
         <span style="display:flex;gap:4px">
           ${pubs.length?`<span style="font-size:10px;background:var(--bg2);border-radius:99px;padding:1px 8px;color:var(--t2)">${pubs.length}작품</span>`:''}
-          ${pendings.length?`<span style="font-size:10px;border:1px dashed #ada99f;border-radius:99px;padding:1px 8px;color:#726e68">미확정 ${pendings.length}</span>`:''}
+          ${pendings.length?`<span style="font-size:10px;background:var(--bg2);border-radius:99px;padding:1px 8px;color:#726e68">미확정 ${pendings.length}</span>`:''}
         </span>
       </div>
       ${pubs.map(s=>{
@@ -2333,13 +2468,14 @@ function renderSchedYear(){
           </div>
         </div>`;
       }).join('')}
+      ${pendings.length?`<div style="border-top:0.5px solid var(--b1);margin:6px 0 6px;padding-top:6px;font-size:10px;color:var(--t2)">미확정</div>`:''}
       ${pendings.map(w=>{
         const day=new Date(w.pubdate).getDate();
         return`<div style="font-size:11px;margin-bottom:4px;display:flex;align-items:flex-start;gap:5px;line-height:1.4;cursor:pointer" onclick="openWorkModal(${w.id})" title="미확정 · ${w.stage}">
-          <span style="color:#726e68;font-size:10px;font-weight:700;min-width:22px;flex-shrink:0;padding-top:1px">${day}일</span>
+          <span style="color:var(--t2);font-size:10px;font-weight:700;min-width:22px;flex-shrink:0;padding-top:1px">${day}일</span>
           <div style="flex:1;min-width:0">
-            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:#726e68" title="${w.title}">${stageEmoji[w.stage]||'📝'} ${w.title}</div>
-            <div style="font-size:10px;color:#928e87;font-weight:500">${w.platform||'-'} · ${w.stage} (미확정)</div>
+            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:var(--t1)" title="${w.title}">${stageEmoji[w.stage]||'📝'} ${w.title}</div>
+            <div style="font-size:10px;color:var(--t2);font-weight:500">${w.platform||'-'} · ${w.stage}</div>
           </div>
         </div>`;
       }).join('')}
@@ -3138,6 +3274,12 @@ function showPage(id,el){
   if(id==='dashboard'){renderDeadlineDash();renderWeekChart();}
   if(id==='weekly')renderWeekly();
   if(id==='todo')renderTimeSchedule();
+  if(id==='memo'){
+    const s=document.getElementById('memo-search');if(s)s.value='';
+    const r=document.getElementById('memo-search-results');if(r)r.innerHTML='';
+    const m=document.getElementById('memo-main');if(m)m.style.display='block';
+    renderMemoPage();
+  }
 }
 
 // Firestore pull 후 앱 변수 재로드
@@ -3153,6 +3295,7 @@ function reloadAppData(){
   weeklyTodos=load(KEYS.weekly,[]);
   taskHistory=load(KEYS.history,[]);
   dailyCapHours=load(KEYS.dailyCap,8);
+  platMemos=load(KEYS.platMemos,{'네이버':{text:'',updated:''},'리디':{text:'',updated:''},'카카오':{text:'',updated:''}});
   timeBlocks=load('ned_timeblocks',[]);
   totalLoggedSec=load(KEYS.totalSec,0);
   Object.assign(catSecs,load(KEYS.calSecs,{review:0,edit:0,design:0,secondary:0,comm:0,etc:0}));
