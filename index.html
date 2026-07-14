@@ -127,6 +127,9 @@ input[type=date]{cursor:pointer}
 .sched-cal-event.sc-teal{background:#dcfce7;color:#15803d}
 .sched-cal-event.sc-amber{background:#fef9c3;color:#a16207}
 .sched-cal-event.sc-gray{background:#f1efe8;color:#5f5e5a}
+.sched-cal-event.sc-pending{background:repeating-linear-gradient(45deg,#f5f4ef,#f5f4ef 4px,#eae8e1 4px,#eae8e1 8px);border:1px dashed #9a9690;color:#726e68;font-style:italic}
+.pending-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 9px;border-radius:99px;border:1px dashed #9a9690;background:#f4f3ef;color:#6b6863;white-space:nowrap}
+.pending-chip .pc-plat{opacity:.7;font-size:10px}
 .tab-row{display:flex;margin-bottom:1rem;border-bottom:0.5px solid var(--b1)}
 .tab{font-size:13px;padding:6px 14px;cursor:pointer;color:var(--t2);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
 .tab:hover{color:var(--t1)}
@@ -1031,7 +1034,7 @@ localStorage.setItem = function(k, v) {
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
       <input type="text" id="wm-deadline" placeholder="프로모션 (예: 봄맞이 특집)" style="width:100%">
-      <input type="date" id="wm-pubdate" placeholder="출간일 (출간 일정표 연동)" style="width:100%">
+      <input type="date" id="wm-pubdate" placeholder="출간일 / 예상 시점 (심사고·투고는 미확정으로 캘린더 표시)" style="width:100%">
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-sm btn-acc" onclick="saveWork()">저장</button>
@@ -2016,11 +2019,17 @@ function saveWork(){
   save(KEYS.works,works);
 
   // 출간일정표 연동: 출간일 / 프로모션 / 단계 / 제목변경 모두 반영
+  // 단, 심사고·투고 단계는 아직 확정 전이므로 출간일정표(확정 캘린더)에는 올리지 않고
+  // 캘린더에 '미확정' 스타일로만 노출한다 (중복 표시 방지)
   const promoVal=document.getElementById('wm-deadline').value||'-';
   const stageVal=document.getElementById('wm-stage').value;
+  const isUnconfirmedStage=stageVal==='심사고'||stageVal==='투고';
   const origTitle=window._wmOrigTitle||title; // 수정 전 제목 (없으면 현재 제목 = 신규 등록)
   const existSchedIdx=schedPub.findIndex(s=>s.title===origTitle);
-  if(pubdate||promoVal!=='-'||existSchedIdx>=0){
+  if(isUnconfirmedStage){
+    // 단계가 미확정으로 바뀐 경우, 기존에 잡혀있던 확정 일정이 있다면 정리
+    if(existSchedIdx>=0){schedPub.splice(existSchedIdx,1);save(KEYS.schedPub,schedPub);}
+  } else if(pubdate||promoVal!=='-'||existSchedIdx>=0){
     const schedObj={
       title,author,platform,
       date:pubdate||(existSchedIdx>=0?schedPub[existSchedIdx].date:''),
@@ -2229,6 +2238,13 @@ function getKoreanHolidays(year){
   return new Set([...fixed,...(lunar[year]||[])]);
 }
 
+// ══════ 심사고/투고 단계 작품 — 출간일(pubdate)이 입력된 경우, 해당 날짜에 '미확정' 스타일로 표시 ══════
+// (날짜가 없는 작품은 아직 걸 자리가 없으므로 캘린더에는 노출하지 않음)
+const stageEmoji={'심사고':'🔍','투고':'✉️'};
+function getPendingWorksByDate(dateStr){
+  return works.filter(w=>(w.stage==='심사고'||w.stage==='투고')&&w.pubdate===dateStr
+    &&!schedPub.some(s=>s.title===w.title&&s.date===dateStr)); // 이미 확정 일정표에 같은 날짜로 잡혀있으면 중복 표시 방지
+}
 function renderSchedCal(){
   const el=document.getElementById('sched-cal-title');if(el)el.textContent=`${schedCalYear}년 ${schedCalMonth+1}월`;
   const body=document.getElementById('sched-cal-body');if(!body)return;
@@ -2247,10 +2263,13 @@ function renderSchedCal(){
     const isSat=dow===6;
     const numColor=isHoliday||isSun?'#e94560':isSat?'#5a8fa0':'';
     const pubs=schedPub.filter(s=>s.date===dateStr);
+    const pendings=getPendingWorksByDate(dateStr);
     div.innerHTML=`<div class="cal-day-num" style="${numColor?'color:'+numColor+';':''}">${d}${isHoliday?'<span style="font-size:8px;margin-left:2px;opacity:.7">●</span>':''}</div>`+pubs.map(s=>{
       const dDay=s.date?Math.round((new Date(s.date)-today)/864e5):null;
       const platCls=s.platform==='시리즈'?'sc-teal':s.platform==='리디'?'sc-blue':s.platform==='카카오'?'sc-amber':dDay===null?'sc-gray':dDay<=7?'sc-red':new Date(s.date).getMonth()===schedCalMonth?'sc-blue':'sc-teal';
       return`<div class="sched-cal-event ${platCls}" title="${s.author} · ${s.note}">${s.title} <span style="opacity:.7;font-size:9px">[${s.platform}]</span></div>`;
+    }).join('')+pendings.map(w=>{
+      return`<div class="sched-cal-event sc-pending" title="미확정 · ${w.stage}" onclick="openWorkModal(${w.id})" style="cursor:pointer">${stageEmoji[w.stage]||'📝'} ${w.title} <span style="opacity:.7;font-size:9px">[${w.platform||'-'}·미확정]</span></div>`;
     }).join('');
     body.appendChild(div);
   }
@@ -2289,13 +2308,21 @@ function renderSchedYear(){
     const pubs=schedPub
       .filter(s=>{if(!s.date)return false;const d=new Date(s.date);return d.getFullYear()===schedYear&&d.getMonth()===mi;})
       .sort((a,b)=>a.date.localeCompare(b.date));
+    const pendings=works
+      .filter(w=>(w.stage==='심사고'||w.stage==='투고')&&w.pubdate)
+      .filter(w=>{const d=new Date(w.pubdate);return d.getFullYear()===schedYear&&d.getMonth()===mi;})
+      .filter(w=>!schedPub.some(s=>s.title===w.title&&s.date===w.pubdate))
+      .sort((a,b)=>a.pubdate.localeCompare(b.pubdate));
     const isCurrent=schedYear===todayYear&&mi===todayMonth;
     return`<div style="background:var(--bg1);border:${isCurrent?'1.5px solid var(--acc)':'0.5px solid var(--b1)'};border-radius:var(--rl);padding:.875rem;min-height:100px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;padding-bottom:.375rem;border-bottom:0.5px solid var(--b1)">
         <span style="font-size:13px;font-weight:600;color:${isCurrent?'var(--acc)':'var(--t1)'}">${mName}</span>
-        ${pubs.length?`<span style="font-size:10px;background:var(--bg2);border-radius:99px;padding:1px 8px;color:var(--t2)">${pubs.length}작품</span>`:''}
+        <span style="display:flex;gap:4px">
+          ${pubs.length?`<span style="font-size:10px;background:var(--bg2);border-radius:99px;padding:1px 8px;color:var(--t2)">${pubs.length}작품</span>`:''}
+          ${pendings.length?`<span style="font-size:10px;border:1px dashed #ada99f;border-radius:99px;padding:1px 8px;color:#726e68">미확정 ${pendings.length}</span>`:''}
+        </span>
       </div>
-      ${pubs.length?pubs.map(s=>{
+      ${pubs.map(s=>{
         const day=new Date(s.date).getDate();
         const pc=platColor(s.platform);
         return`<div style="font-size:11px;margin-bottom:4px;display:flex;align-items:flex-start;gap:5px;line-height:1.4">
@@ -2305,7 +2332,18 @@ function renderSchedYear(){
             <div style="font-size:10px;color:${pc};font-weight:500">${s.platform}${s.stage?` · ${s.stage}`:''}</div>
           </div>
         </div>`;
-      }).join(''):`<div style="font-size:11px;color:var(--t2);padding:.25rem 0">출간 예정 없음</div>`}
+      }).join('')}
+      ${pendings.map(w=>{
+        const day=new Date(w.pubdate).getDate();
+        return`<div style="font-size:11px;margin-bottom:4px;display:flex;align-items:flex-start;gap:5px;line-height:1.4;cursor:pointer" onclick="openWorkModal(${w.id})" title="미확정 · ${w.stage}">
+          <span style="color:#726e68;font-size:10px;font-weight:700;min-width:22px;flex-shrink:0;padding-top:1px">${day}일</span>
+          <div style="flex:1;min-width:0">
+            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:#726e68" title="${w.title}">${stageEmoji[w.stage]||'📝'} ${w.title}</div>
+            <div style="font-size:10px;color:#928e87;font-weight:500">${w.platform||'-'} · ${w.stage} (미확정)</div>
+          </div>
+        </div>`;
+      }).join('')}
+      ${(!pubs.length&&!pendings.length)?`<div style="font-size:11px;color:var(--t2);padding:.25rem 0">출간 예정 없음</div>`:''}
     </div>`;
   }).join('');
 }
@@ -2328,8 +2366,15 @@ function closeSchedModal(){document.getElementById('sched-modal').style.display=
 function saveSched(){
   const title=document.getElementById('sm-title').value.trim();if(!title)return;
   const obj={title,author:document.getElementById('sm-author').value,platform:document.getElementById('sm-platform').value,date:document.getElementById('sm-date').value,stage:document.getElementById('sm-stage').value,promo:document.getElementById('sm-promo').value||'-',note:document.getElementById('sm-note').value};
-if(editingSchedId){const s=schedPub.find(x=>x.id===editingSchedId);if(s)Object.assign(s,obj);}
-  else{schedPub.unshift({id:Date.now(),...obj});}
+  // 심사고/투고는 아직 확정 전이므로 출간 일정표(확정 캘린더)에는 올리지 않고
+  // 아래 역방향 동기화를 통해 작품 쪽 pubdate/stage로만 반영 → 캘린더엔 '미확정' 스타일로 노출
+  const isUnconfirmedStage=obj.stage==='심사고'||obj.stage==='투고';
+  if(isUnconfirmedStage){
+    if(editingSchedId){schedPub=schedPub.filter(x=>x.id!==editingSchedId);} // 확정→미확정으로 내리는 경우, 기존 확정 항목 제거
+  } else {
+    if(editingSchedId){const s=schedPub.find(x=>x.id===editingSchedId);if(s)Object.assign(s,obj);}
+    else{schedPub.unshift({id:Date.now(),...obj});}
+  }
   save(KEYS.schedPub,schedPub);
   // 역방향: 같은 작품(수정 전 제목 기준 매칭)에 출간일·프로모션·단계·제목 반영
   const origTitleS = window._smOrigTitle || obj.title;
