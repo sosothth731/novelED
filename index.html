@@ -111,6 +111,8 @@ input[type=date]{cursor:pointer}
 .cal-day.today{border-color:var(--acc);border-width:1.5px}
 .cal-day.other-month{opacity:.28}
 .cal-day-num{font-weight:500;color:var(--t1);margin-bottom:3px;font-size:12px}
+.holiday-dot{font-size:8px;margin-left:2px;opacity:.7}
+.sub-holiday-badge{font-size:8px;margin-left:3px;padding:0 4px;border-radius:5px;background:#f59e0b;color:#fff;font-weight:600;vertical-align:middle;letter-spacing:-0.3px}
 .cal-event{font-size:10px;padding:2px 5px;border-radius:4px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cal-event.pub{background:#e1f5ee;color:#0f6e56}
 .cal-event.promo{background:#fef3e2;color:#8a5c00}
@@ -858,8 +860,8 @@ localStorage.setItem = function(k, v) {
         </div>
         <!-- 오늘 할 일 드롭존 -->
         <div id="todo-list"
-          ondragover="event.preventDefault()"
-          ondragleave=""
+          ondragover="event.preventDefault();this.style.outline='2px dashed var(--acc)'"
+          ondragleave="this.style.outline=''"
           ondrop="dropTodoToToday(event);this.style.outline=''">
         </div>
         <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--t2);margin-top:10px;padding-top:10px;border-top:0.5px solid var(--b1)">
@@ -1800,7 +1802,7 @@ function makeTodoRow(t,orderNum){
     ondragend="this.style.opacity='1'"
     ondragover="event.preventDefault();this.style.background='var(--bg2)'"
     ondragleave="this.style.background=''"
-    ondrop="event.stopPropagation();reorderTodo(${t.id});this.style.background=''">
+    ondrop="dropOnTodoRow(event,${t.id});this.style.background=''">
     ${numBadge}
     <input type="checkbox" ${t.done?'checked':''} onchange="toggleTodo(${t.id})">
     <span class="badge ${catColors[t.cat]}">${catLabels[t.cat]}</span>
@@ -1830,9 +1832,10 @@ function copyTodo(id){
   todos.splice(idx+1,0,copy);
   save(KEYS.todos,todos);save(KEYS.weekly,weeklyTodos);renderTodos();renderWeekly();
 }
-function reorderTodo(targetId){
-  if(draggingTodoId===null||draggingTodoId===targetId)return;
-  const fromTodo=todos.find(t=>t.id===draggingTodoId);
+function reorderTodo(targetId,fromId){
+  const dragId=fromId??draggingTodoId;
+  if(dragId===null||dragId===undefined||dragId===targetId)return;
+  const fromTodo=todos.find(t=>t.id===dragId);
   const toTodo=todos.find(t=>t.id===targetId);
   if(!fromTodo||!toTodo)return;
   // 타겟의 manualOrder를 기준으로 재정렬
@@ -1841,13 +1844,31 @@ function reorderTodo(targetId){
   // 위로 이동: from 이후 항목들을 +1, 아래로 이동: from 이전 항목들을 -1
   const movingDown=toOrder>fromOrder;
   todos.forEach(t=>{
-    if(t.id===draggingTodoId){t.manualOrder=toOrder;return;}
+    if(t.id===dragId){t.manualOrder=toOrder;return;}
     if(t.manualOrder==null)return;
     if(movingDown&&t.manualOrder>fromOrder&&t.manualOrder<=toOrder)t.manualOrder--;
     else if(!movingDown&&t.manualOrder>=toOrder&&t.manualOrder<fromOrder)t.manualOrder++;
   });
   draggingTodoId=null;
   save(KEYS.todos,todos);renderTodos();
+}
+// 항목이 현재 '오늘의 할 일'에 속하는지 여부 (todayFlag / 날짜없음 / 오늘 이하 마감)
+function isTodoToday(t){
+  if(t.todayFlag)return true;
+  if(!t.date)return true;
+  const todayStart=new Date();todayStart.setHours(0,0,0,0);
+  const d=new Date(t.date);d.setHours(0,0,0,0);
+  return d<=todayStart;
+}
+// '오늘의 할 일' 목록 내 기존 항목 위에 드롭했을 때: 예정된 할 일에서 온 항목이면 오늘로 이동, 아니면 순서 재정렬
+function dropOnTodoRow(e,targetId){
+  e.stopPropagation();e.preventDefault();
+  const id=parseInt(e.dataTransfer.getData('text/plain')||e.dataTransfer.getData('text/todo-id'));
+  if(isNaN(id))return;
+  const t=todos.find(x=>x.id===id);
+  if(!t)return;
+  if(!isTodoToday(t))moveTodoToToday(id);
+  else reorderTodo(targetId,id);
 }
 
 function renderTodos(){
@@ -1948,9 +1969,7 @@ function renderTodos(){
 function toggleUpcoming(){
   upcomingOpen=!upcomingOpen;renderTodos();
 }
-function dropTodoToToday(e){
-  e.preventDefault();
-  const id=parseInt(e.dataTransfer.getData('text/plain')||e.dataTransfer.getData('text/todo-id'));
+function moveTodoToToday(id){
   const t=todos.find(x=>x.id===id);
   if(!t)return;
   // 마감일을 오늘로 변경
@@ -1976,6 +1995,11 @@ function dropTodoToToday(e){
     t.linkedId=wtId;
   }
   save(KEYS.todos,todos);save(KEYS.weekly,weeklyTodos);renderTodos();renderWeekly();renderCalendar();
+}
+function dropTodoToToday(e){
+  e.preventDefault();
+  const id=parseInt(e.dataTransfer.getData('text/plain')||e.dataTransfer.getData('text/todo-id'));
+  if(!isNaN(id))moveTodoToToday(id);
 }
 function dropTodoToUpcoming(e){
   e.preventDefault();
@@ -2406,7 +2430,33 @@ function getKoreanHolidays(year){
       '2027-10-14','2027-10-15','2027-10-16', // 추석
     ],
   };
-  return new Set([...fixed,...(lunar[year]||[])]);
+  // 대체공휴일 (연도별 하드코딩 2025~2027, 실제 정부 발표 기준)
+  const substitute={
+    2025:[
+      '2025-03-03', // 삼일절 대체 (3/1 토)
+      '2025-05-06', // 어린이날·부처님오신날 겹침 대체
+      '2025-10-08', // 추석 연휴 대체 (10/5 일)
+    ],
+    2026:[
+      '2026-03-02', // 삼일절 대체 (3/1 일)
+      '2026-05-25', // 부처님오신날 대체 (5/24 일)
+      '2026-08-17', // 광복절 대체 (8/15 토)
+      '2026-10-05', // 개천절 대체 (10/3 토)
+    ],
+    2027:[
+      '2027-02-09', // 설날 대체 (설날 당일 2/7 일)
+      '2027-06-07', // 현충일 대체 (6/6 일)
+      '2027-08-16', // 광복절 대체 (8/15 일)
+      '2027-10-04', // 개천절 대체 (10/3 일)
+      '2027-10-11', // 한글날 대체 (10/9 토)
+      '2027-12-27', // 크리스마스 대체 (12/25 토)
+    ],
+  };
+  const subs=substitute[year]||[];
+  return {
+    all:new Set([...fixed,...(lunar[year]||[]),...subs]),
+    substitute:new Set(subs),
+  };
 }
 
 // ══════ 심사고/투고 단계 작품 — 출간일(pubdate)이 입력된 경우, 해당 날짜에 '미확정' 스타일로 표시 ══════
@@ -2430,13 +2480,15 @@ function renderSchedCal(){
     if(today.getFullYear()===schedCalYear&&today.getMonth()===schedCalMonth&&today.getDate()===d)div.classList.add('today');
     const dateStr=`${schedCalYear}-${String(schedCalMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const dow=new Date(schedCalYear,schedCalMonth,d).getDay();
-    const isHoliday=holidays.has(dateStr);
+    const isHoliday=holidays.all.has(dateStr);
+    const isSubstitute=holidays.substitute.has(dateStr);
     const isSun=dow===0;
     const isSat=dow===6;
     const numColor=isHoliday||isSun?'#e94560':isSat?'#5a8fa0':'';
     const pubs=schedPub.filter(s=>s.date===dateStr);
     getPendingWorksByDate(dateStr).forEach(w=>monthPendings.push({...w,_day:d}));
-    div.innerHTML=`<div class="cal-day-num" style="${numColor?'color:'+numColor+';':''}">${d}${isHoliday?'<span style="font-size:8px;margin-left:2px;opacity:.7">●</span>':''}</div>`+pubs.map(s=>{
+    const holidayMark=isSubstitute?'<span class="sub-holiday-badge" title="대체휴일">대체</span>':isHoliday?'<span class="holiday-dot" title="공휴일">●</span>':'';
+    div.innerHTML=`<div class="cal-day-num" style="${numColor?'color:'+numColor+';':''}">${d}${holidayMark}</div>`+pubs.map(s=>{
       const dDay=s.date?Math.round((new Date(s.date)-today)/864e5):null;
       const platCls=s.platform==='시리즈'?'sc-teal':s.platform==='리디'?'sc-blue':s.platform==='카카오'?'sc-amber':dDay===null?'sc-gray':dDay<=7?'sc-red':new Date(s.date).getMonth()===schedCalMonth?'sc-blue':'sc-teal';
       return`<div class="sched-cal-event ${platCls}" title="${s.author} · ${s.note}">${s.title} <span style="opacity:.7;font-size:9px">[${s.platform}]</span></div>`;
@@ -3065,6 +3117,11 @@ function renderWeekly(){
   const renderDay=(d,dayIdx,wsStr)=>{
     const dateStr=isoDate(d);
     const isToday=isoDate(new Date())===dateStr;
+    const holidays=getKoreanHolidays(d.getFullYear());
+    const isHoliday=holidays.all.has(dateStr);
+    const isSubstitute=holidays.substitute.has(dateStr);
+    const dayNumColor=isToday?'var(--acc)':isHoliday||dayIdx===0?'#e94560':dayIdx===6?'#5a8fa0':'var(--t1)';
+    const holidayMark=isSubstitute?'<span class="sub-holiday-badge" title="대체휴일">대체</span>':isHoliday?'<span class="holiday-dot" title="공휴일">●</span>':'';
     const allItems=weeklyTodos.filter(t=>t.day===dayIdx&&normalizeWs(t.weekStart)===wsStr);
     const personalItems=allItems.filter(t=>t.type==='personal');
     const dayItems=allItems.filter(t=>t.type!=='personal').sort((a,b)=>a.done===b.done?0:a.done?1:-1);
@@ -3083,7 +3140,7 @@ function renderWeekly(){
       <div style="padding:.75rem;min-height:80px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.625rem">
           <div>
-            <div style="font-size:12px;font-weight:500;color:${isToday?'var(--acc)':'var(--t1)'}">${DAY_LABELS[dayIdx]}</div>
+            <div style="font-size:12px;font-weight:500;color:${dayNumColor}">${DAY_LABELS[dayIdx]}${holidayMark}</div>
             <div style="font-size:11px;color:var(--t2)">${fmt(d)}</div>
           </div>
           <div style="display:flex;gap:3px">
