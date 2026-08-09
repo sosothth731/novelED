@@ -1030,7 +1030,7 @@ localStorage.setItem = function(k, v) {
   </div>
 </div>
 
-<div id="todo-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)closeTodoModal()" onkeydown="if(event.key==='Enter'&&event.target.tagName!=='TEXTAREA'&&event.target.tagName!=='SELECT'){event.stopPropagation();saveTodo()}">
+<div id="todo-modal" class="modal-backdrop" style="display:none" onkeydown="if(event.key==='Enter'&&event.target.tagName!=='TEXTAREA'&&event.target.tagName!=='SELECT'){event.stopPropagation();saveTodo()}else if(event.key==='Escape'){closeTodoModal()}">
   <div class="card" style="width:420px;max-width:92vw">
     <div style="font-size:15px;font-weight:500;margin-bottom:1rem" id="todo-modal-title">할 일 추가</div>
     <input type="hidden" id="tm-id">
@@ -1086,7 +1086,7 @@ localStorage.setItem = function(k, v) {
 </div>
 
 <!-- weekly modal -->
-<div id="weekly-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)closeWeeklyModal()" onkeydown="if(event.key==='Enter'&&event.target.tagName!=='TEXTAREA'&&event.target.tagName!=='SELECT'){event.stopPropagation();saveWeeklyTodo()}">
+<div id="weekly-modal" class="modal-backdrop" style="display:none" onkeydown="if(event.key==='Enter'&&event.target.tagName!=='TEXTAREA'&&event.target.tagName!=='SELECT'){event.stopPropagation();saveWeeklyTodo()}else if(event.key==='Escape'){closeWeeklyModal()}">
   <div class="card" style="width:420px;max-width:92vw">
     <div style="font-size:15px;font-weight:500;margin-bottom:1rem" id="weekly-modal-title">위클리 할 일 추가</div>
     <input type="hidden" id="wt-id">
@@ -2507,15 +2507,24 @@ function deletePromo(){
 
 // ══════ SCHEDULE — 출간 예정일 첫 열, 플랫폼 캘린더 노출 ══════
 let schedCalYear=new Date().getFullYear(),schedCalMonth=new Date().getMonth(),editingSchedId=null;
+let schedPubExpanded=false; // 출간일정표 목록: '출간' 완료 작품 접기/펼치기 상태
+function toggleSchedPubPublished(){
+  schedPubExpanded=!schedPubExpanded;
+  renderSchedule();
+}
 function renderSchedule(){
   const pb=document.getElementById('sched-pub-body');
   if(pb){
     if(!schedPub.length){pb.innerHTML=`<tr><td colspan="8"><div class="empty-state">출간 일정 없음</div></td></tr>`;}
     else{
-      const sorted=[...schedPub].sort((a,b)=>{if(!a.date)return 1;if(!b.date)return -1;return a.date.localeCompare(b.date);});
+      const sortAsc=(a,b)=>{if(!a.date)return 1;if(!b.date)return -1;return a.date.localeCompare(b.date);};
+      const sortDesc=(a,b)=>{if(!a.date)return 1;if(!b.date)return -1;return b.date.localeCompare(a.date);};
+      const active=schedPub.filter(s=>s.stage!=='출간').sort(sortAsc);
+      // 출간 완료 작품은 최근 출간일이 위로 오도록 내림차순, 목록 맨 아래로
+      const published=schedPub.filter(s=>s.stage==='출간').sort(sortDesc);
       const today=new Date();today.setHours(0,0,0,0);
       const platColor=p=>p==='시리즈'?'color:#16a34a;font-weight:500':p==='카카오'?'color:#d97706;font-weight:500':p==='리디'?'color:#185fa5;font-weight:500':'';
-      pb.innerHTML=sorted.map(s=>{
+      const rowHtml=s=>{
         const dDay=s.date?Math.round((new Date(s.date)-today)/864e5):null;
         const urgent=dDay!==null&&dDay<=7&&dDay>=0;
         return`<tr${s.isSpinoff?' style="opacity:.7"':''}>
@@ -2528,7 +2537,18 @@ function renderSchedule(){
           <td style="font-size:12px;color:var(--t2)">${s.note}</td>
           <td><div class="row-actions"><button class="edit-btn" onclick="openSchedModal(${s.id})">수정</button></div></td>
         </tr>`;
-      }).join('');
+      };
+      let html=active.map(rowHtml).join('');
+      if(published.length){
+        html+=`<tr style="cursor:pointer;background:var(--bg2)" onclick="toggleSchedPubPublished()">
+          <td colspan="8" style="font-size:12px;color:var(--t2);font-weight:500;padding:8px 10px">
+            <span style="display:inline-block;transition:transform .15s;transform:rotate(${schedPubExpanded?'90deg':'0deg'})">▸</span>
+            &nbsp;출간 완료 작품 (${published.length})
+          </td>
+        </tr>`;
+        if(schedPubExpanded)html+=published.map(rowHtml).join('');
+      }
+      pb.innerHTML=html;
     }
   }
   // also refresh calendar and exclusive when schedule changes
