@@ -125,7 +125,7 @@ input[type=date]{cursor:pointer}
 .cal-event.work-secondary{background:#fce8eb;color:#b01830}
 .cal-event.work-etc{background:#f1efe8;color:#5f5e5a}
 .sched-cal-event{font-size:10px;padding:2px 6px;border-radius:4px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sched-cal-event.spinoff{opacity:.55;font-weight:400}
+.sched-cal-event.spinoff{background:var(--bg3)!important;color:var(--t2)!important;border:1px dashed var(--b2);font-style:italic}
 .sched-cal-event.sc-red{background:#fce8eb;color:#b01830}
 .sched-cal-event.sc-blue{background:#dbeafe;color:#1d4ed8}
 .sched-cal-event.sc-teal{background:#dcfce7;color:#15803d}
@@ -1298,6 +1298,11 @@ localStorage.setItem = function(k, v) {
   <div class="card" style="width:480px;max-width:92vw">
     <div style="font-size:15px;font-weight:500;margin-bottom:1rem" id="sched-modal-title">출간 일정 등록</div>
     <input type="hidden" id="sm-id">
+    <div style="margin-bottom:8px">
+      <select id="sm-parent" style="width:100%">
+        <option value="">— 외전 아님 (본편 작품) —</option>
+      </select>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
       <input type="text" id="sm-title" placeholder="작품명" style="width:100%">
       <input type="text" id="sm-author" placeholder="작가명" style="width:100%">
@@ -2269,8 +2274,8 @@ function renderWorks(){
           const platColor=w.platform==='리디'?'#185fa5':w.platform==='시리즈'?'#15803d':w.platform==='카카오'?'#d97706':'#6b7280';
           const promoText=wp?wp.title:'';
           const isSpin=!!w.parentTitle;
-          return`<div class="kcard" style="border-left:3px ${isSpin?'dashed':'solid'} ${platColor};${isSpin?'opacity:.75;margin-left:10px':''}" draggable="true" ondragstart="dragWork(event,${w.id})">
-          <div style="font-weight:500;font-size:12px">${isSpin?'↳ ':''}${w.title}${isSpin?' <span class="spinoff-badge">외전</span>':''}</div>
+          return`<div class="kcard" style="border-left:3px ${isSpin?'dashed':'solid'} ${platColor};${isSpin?'margin-left:10px':''}" draggable="true" ondragstart="dragWork(event,${w.id})">
+          <div style="font-weight:500;font-size:12px;${isSpin?'color:var(--t2);font-style:italic':''}">${isSpin?'↳ ':''}${w.title}${isSpin?' <span class="spinoff-badge">외전</span>':''}</div>
           <div style="color:var(--t2);font-size:11px;margin-top:2px">${w.author}${kId==='works-kanban'?' · '+w.gLabel:''}${isSpin?` · 본편: ${w.parentTitle}`:''}</div>
           ${promoText&&kId==='works-kanban'?`<div style="margin-top:4px"><span style="font-size:10px;padding:1px 7px;border-radius:99px;background:${platColor}22;color:${platColor};border:0.5px solid ${platColor}55;display:inline-block;font-weight:500">프로모션 · ${promoText}</span></div>`:''}
         </div>`;
@@ -2285,8 +2290,8 @@ function renderWorks(){
     const wp=promos.find(p=>p.works&&p.works.includes(w.title));
     const platColor=w.platform==='리디'?'#185fa5':w.platform==='시리즈'?'#15803d':w.platform==='카카오'?'#d97706':'inherit';
     const isSpin=!!w.parentTitle;
-    return`<tr style="${isSpin?'opacity:.75':''}">
-    <td style="font-weight:500">${isSpin?'<span style="color:var(--t2);margin-right:3px">↳</span>':''}${w.title}${isSpin?' <span class="spinoff-badge">외전</span>':''}</td><td style="color:var(--t2)">${w.author}</td>
+    return`<tr>
+    <td style="font-weight:500;${isSpin?'color:var(--t2);font-style:italic':''}">${isSpin?'<span style="margin-right:3px">↳</span>':''}${w.title}${isSpin?' <span class="spinoff-badge">외전</span>':''}</td><td style="color:var(--t2)">${w.author}</td>
     <td>${w.gLabel}</td><td><span class="badge ${stageBadge[w.stage]||'badge-gray'}">${w.stage}</span></td>
     <td style="color:${platColor};font-weight:500">${w.platform}</td>
     <td style="color:var(--t2);font-size:12px">${w.pubdate?w.pubdate.replace(/-/g,'.'):'−'}</td>
@@ -2527,9 +2532,9 @@ function renderSchedule(){
       const rowHtml=s=>{
         const dDay=s.date?Math.round((new Date(s.date)-today)/864e5):null;
         const urgent=dDay!==null&&dDay<=7&&dDay>=0;
-        return`<tr${s.isSpinoff?' style="opacity:.7"':''}>
+        return`<tr>
           <td style="${urgent?'color:var(--acc);font-weight:500':'color:var(--t2)'}">${s.date?s.date.replace(/-/g,'.'):'-'}${dDay!==null&&dDay>=0?` <span class="badge badge-${dDay===0?'red':dDay<=3?'red':dDay<=7?'amber':'gray'}" style="font-size:10px">${dDay===0?'D-Day':'D-'+dDay}</span>`:''}</td>
-          <td style="font-weight:500">${s.isSpinoff?'↳ ':''}${s.title}${s.isSpinoff?' <span class="spinoff-badge">외전</span>':''}</td>
+          <td style="font-weight:500;${s.isSpinoff?'color:var(--t2);font-style:italic':''}">${s.isSpinoff?'↳ ':''}${s.title}${s.isSpinoff?' <span class="spinoff-badge">외전</span>':''}</td>
           <td style="color:var(--t2)">${s.author}</td>
           <td style="${platColor(s.platform)}">${s.platform}</td>
           <td><span class="badge ${stageBadge[s.stage]||'badge-gray'}">${s.stage}</span></td>
@@ -2727,11 +2732,11 @@ function renderSchedYear(){
       </div>
       ${pubs.map(s=>{
         const day=new Date(s.date).getDate();
-        const pc=platColor(s.platform);
-        return`<div style="font-size:11px;margin-bottom:4px;display:flex;align-items:flex-start;gap:5px;line-height:1.4;${s.isSpinoff?'opacity:.6':''}">
+        const pc=s.isSpinoff?'var(--t2)':platColor(s.platform);
+        return`<div style="font-size:11px;margin-bottom:4px;display:flex;align-items:flex-start;gap:5px;line-height:1.4">
           <span style="color:${pc};font-size:10px;font-weight:700;min-width:22px;flex-shrink:0;padding-top:1px">${day}일</span>
           <div style="flex:1;min-width:0">
-            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:var(--t1)" title="${s.title}">${s.isSpinoff?'↳ ':''}${s.title}${s.isSpinoff?' <span class="spinoff-badge">외전</span>':''}</div>
+            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:${s.isSpinoff?'var(--t2)':'var(--t1)'};${s.isSpinoff?'font-style:italic':''}" title="${s.title}">${s.isSpinoff?'↳ ':''}${s.title}${s.isSpinoff?' <span class="spinoff-badge">외전</span>':''}</div>
             <div style="font-size:10px;color:${pc};font-weight:500">${s.platform}${s.stage?` · ${s.stage}`:''}</div>
           </div>
         </div>`;
@@ -2755,6 +2760,14 @@ function openSchedModal(id){
   editingSchedId=id;const s=id?schedPub.find(x=>x.id===id):null;
   document.getElementById('sched-modal-title').textContent=id?'출간 일정 수정':'출간 일정 등록';
   document.getElementById('sm-id').value=id||'';
+  // 본편 선택 목록: 이미 외전으로 등록된 작품은 부모 후보에서 제외 (외전의 외전 방지), 자기 자신도 제외
+  const parentSel=document.getElementById('sm-parent');
+  const candidates=works.filter(w=>!w.parentTitle&&w.title!==(s?s.title:''));
+  parentSel.innerHTML='<option value="">— 외전 아님 (본편 작품) —</option>'+
+    candidates.map(w=>`<option value="${w.title.replace(/"/g,'&quot;')}">${w.title}</option>`).join('');
+  // 현재 값: 이 일정 항목에 저장된 parentTitle 우선, 없으면 연결된 작품(works)의 parentTitle 참고
+  const linkedW=s?works.find(w=>w.title===s.title):null;
+  parentSel.value=s?(s.parentTitle||(linkedW?linkedW.parentTitle:'')||''):'';
   document.getElementById('sm-title').value=s?s.title:'';
   document.getElementById('sm-author').value=s?s.author:'';
   document.getElementById('sm-platform').value=s?s.platform:'리디';
@@ -2769,11 +2782,10 @@ function openSchedModal(id){
 function closeSchedModal(){document.getElementById('sched-modal').style.display='none';editingSchedId=null;}
 function saveSched(){
   const title=document.getElementById('sm-title').value.trim();if(!title)return;
+  const parentTitle=document.getElementById('sm-parent').value||'';
   const obj={title,author:document.getElementById('sm-author').value,platform:document.getElementById('sm-platform').value,date:document.getElementById('sm-date').value,stage:document.getElementById('sm-stage').value,promo:document.getElementById('sm-promo').value||'-',note:document.getElementById('sm-note').value};
-  // 이 작품이 작품탭에서 외전으로 등록돼 있다면 캘린더 표시에도 그대로 반영
-  const matchedWork=works.find(w=>w.title===(window._smOrigTitle||title));
-  obj.isSpinoff=!!(matchedWork&&matchedWork.parentTitle);
-  obj.parentTitle=matchedWork?(matchedWork.parentTitle||''):'';
+  obj.isSpinoff=!!parentTitle;
+  obj.parentTitle=parentTitle;
   // 심사고/투고는 아직 확정 전이므로 출간 일정표(확정 캘린더)에는 올리지 않고
   // 아래 역방향 동기화를 통해 작품 쪽 pubdate/stage로만 반영 → 캘린더엔 '미확정' 스타일로 노출
   const isUnconfirmedStage=obj.stage==='심사고'||obj.stage==='투고';
@@ -2784,7 +2796,7 @@ function saveSched(){
     else{schedPub.unshift({id:Date.now(),...obj});}
   }
   save(KEYS.schedPub,schedPub);
-  // 역방향: 같은 작품(수정 전 제목 기준 매칭)에 출간일·프로모션·단계·제목 반영
+  // 역방향: 같은 작품(수정 전 제목 기준 매칭)에 출간일·프로모션·단계·제목·외전 여부 반영
   const origTitleS = window._smOrigTitle || obj.title;
   const linkedWork = works.find(w => w.title === origTitleS);
   if(linkedWork){
@@ -2792,6 +2804,7 @@ function saveSched(){
     if(obj.date) linkedWork.pubdate = obj.date;
     if(obj.promo && obj.promo !== '-') linkedWork.deadline = obj.promo;
     if(obj.stage) linkedWork.stage = obj.stage;
+    linkedWork.parentTitle = parentTitle;
     save(KEYS.works, works);
     renderWorks();
   } else {
@@ -2801,7 +2814,8 @@ function saveSched(){
       id:Date.now()+3,title:obj.title,author:obj.author,
       genre:defGenre,gLabel:genreLabels[defGenre]||'',
       stage:obj.stage||'심사고',platform:obj.platform,
-      deadline:(obj.promo&&obj.promo!=='-')?obj.promo:'',pubdate:obj.date||''
+      deadline:(obj.promo&&obj.promo!=='-')?obj.promo:'',pubdate:obj.date||'',
+      parentTitle
     });
     save(KEYS.works,works);
     renderWorks();
