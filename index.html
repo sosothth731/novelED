@@ -1119,12 +1119,12 @@ localStorage.setItem = function(k, v) {
         <input type="checkbox" id="wt-no-overtime"> 야근 불가
       </label>
     </div>
-    <!-- 작가/일러스트레이터/외주자 등 협업자에게 받아야 할 것 -->
+    <!-- 작가/디자인레이터/외주자 등 협업자에게 받아야 할 것 -->
     <div id="wt-collab-fields" style="display:none;margin-bottom:8px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">
         <input type="text" id="wt-collab-name" list="wt-collab-name-list" placeholder="협업자 이름" style="width:100%">
         <datalist id="wt-collab-name-list"></datalist>
-        <select id="wt-collab-role" style="width:100%"><option value="작가">작가</option><option value="일러스트">일러스트</option><option value="외주">외주</option><option value="기타">기타</option></select>
+        <select id="wt-collab-role" style="width:100%"><option value="작가">작가</option><option value="디자인">디자인</option><option value="외주">외주</option><option value="기타">기타</option></select>
       </div>
       <input type="text" id="wt-collab-work" placeholder="작품명 (선택)" style="width:100%;margin-bottom:6px">
       <input type="date" id="wt-collab-date" style="width:100%">
@@ -1422,7 +1422,7 @@ localStorage.setItem = function(k, v) {
     <div style="display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap" id="author-role-filters">
       <div class="chip sel" onclick="filterAuthorRole('전체',this)">전체</div>
       <div class="chip" onclick="filterAuthorRole('작가',this)">작가</div>
-      <div class="chip" onclick="filterAuthorRole('일러스트',this)">일러스트</div>
+      <div class="chip" onclick="filterAuthorRole('디자인',this)">디자인</div>
       <div class="chip" onclick="filterAuthorRole('외주',this)">외주</div>
       <div class="chip" onclick="filterAuthorRole('기타',this)">기타</div>
     </div>
@@ -1439,7 +1439,7 @@ localStorage.setItem = function(k, v) {
     <input type="hidden" id="am-id">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
       <input type="text" id="am-name" placeholder="이름" style="width:100%">
-      <select id="am-role" style="width:100%"><option value="작가">작가</option><option value="일러스트">일러스트</option><option value="외주">외주</option><option value="기타">기타</option></select>
+      <select id="am-role" style="width:100%"><option value="작가">작가</option><option value="디자인">디자인</option><option value="외주">외주</option><option value="기타">기타</option></select>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
       <input type="email" id="am-email" placeholder="이메일" style="width:100%">
@@ -3023,9 +3023,9 @@ function deleteExcl(){
   save(KEYS.exclusives,exclusives);renderExclusive();renderCalendar();closeExclModal();
 }
 
-// ══════ AUTHORS (협업자: 작가/일러스트/외주/기타) ══════
+// ══════ AUTHORS (협업자: 작가/디자인/외주/기타) ══════
 const sBadge={활성:'badge-green','소통 필요':'badge-amber','협의 중':'badge-amber',휴재:'badge-gray'};
-const roleBadge={작가:'badge-blue',일러스트:'badge-amber',외주:'badge-green',기타:'badge-gray'};
+const roleBadge={작가:'badge-blue',디자인:'badge-amber',외주:'badge-green',기타:'badge-gray'};
 let editingAuthorId=null;
 let authorRoleFilter='전체';
 function filterAuthorRole(role,el){
@@ -3663,7 +3663,7 @@ function saveWeeklyTodo(){
   }
 
   if(type==='collab'){
-    // 협업자(작가/일러스트/외주)에게 받아야 할 것 저장 — 내 업무 소요시간 통계에는 잡히지 않음
+    // 협업자(작가/디자인/외주)에게 받아야 할 것 저장 — 내 업무 소요시간 통계에는 잡히지 않음
     const collabName=document.getElementById('wt-collab-name').value.trim();if(!collabName)return;
     const collabRole=document.getElementById('wt-collab-role').value;
     const collabWork=document.getElementById('wt-collab-work').value.trim();
