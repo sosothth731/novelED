@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>novelED — 웹소설 편집자 대시보드</title>
+<title>업무 대시보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&family=Pretendard:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
@@ -1150,9 +1150,13 @@ localStorage.setItem = function(k, v) {
   <div class="card" style="width:460px;max-width:92vw">
     <div style="font-size:15px;font-weight:500;margin-bottom:1rem" id="work-modal-title">작품 추가</div>
     <input type="hidden" id="wm-id">
-    <div style="margin-bottom:8px">
-      <select id="wm-parent" style="width:100%">
-        <option value="">— 외전 아님 (본편 작품) —</option>
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px">
+      <select id="wm-parent" style="width:100%" onchange="onWmParentChange()">
+        <option value="">— 외전/단행 아님 (본편 작품) —</option>
+      </select>
+      <select id="wm-subtype" style="width:100%" disabled>
+        <option value="외전">외전</option>
+        <option value="단행">단행</option>
       </select>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
@@ -1298,9 +1302,13 @@ localStorage.setItem = function(k, v) {
   <div class="card" style="width:480px;max-width:92vw">
     <div style="font-size:15px;font-weight:500;margin-bottom:1rem" id="sched-modal-title">출간 일정 등록</div>
     <input type="hidden" id="sm-id">
-    <div style="margin-bottom:8px">
-      <select id="sm-parent" style="width:100%">
-        <option value="">— 외전 아님 (본편 작품) —</option>
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px">
+      <select id="sm-parent" style="width:100%" onchange="onSmParentChange()">
+        <option value="">— 외전/단행 아님 (본편 작품) —</option>
+      </select>
+      <select id="sm-subtype" style="width:100%" disabled>
+        <option value="외전">외전</option>
+        <option value="단행">단행</option>
       </select>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
@@ -1350,6 +1358,15 @@ localStorage.setItem = function(k, v) {
   <div class="card" style="width:540px;max-width:95vw;max-height:90vh;overflow-y:auto">
     <div style="font-size:15px;font-weight:500;margin-bottom:1rem" id="excl-modal-title">독점 작품 등록</div>
     <input type="hidden" id="em-id">
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px">
+      <select id="em-parent" style="width:100%" onchange="onEmParentChange()">
+        <option value="">— 외전/단행 아님 (본편 작품) —</option>
+      </select>
+      <select id="em-subtype" style="width:100%" disabled>
+        <option value="외전">외전</option>
+        <option value="단행">단행</option>
+      </select>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
       <input type="text" id="em-title" placeholder="작품명" style="width:100%">
       <input type="text" id="em-author" placeholder="작가명" style="width:100%">
@@ -1632,7 +1649,14 @@ function startTodoTimer(id){
   },1000);
   syncTimerDisplays();renderTodos();
 }
-function stopTodoTimer(){
+function stopTodoTimer(forceId){
+  // forceId가 넘어왔는데 현재 activeTimerId와 다르다면(과거 렉/동기화 어긋남으로 running 플래그만 stale하게 남은 경우)
+  // 해당 항목의 running 플래그만이라도 강제로 꺼서 '중지 버튼이 안 먹는' 상태를 풀어준다.
+  if(forceId!==undefined&&forceId!==activeTimerId){
+    const stray=todos.find(x=>x.id===forceId);
+    if(stray&&stray.running){stray.running=false;delete stray._wallStart;save(KEYS.todos,todos);renderTodos();}
+    return;
+  }
   if(activeTimerId===null)return;
   clearInterval(timerInterval);
   const t=todos.find(x=>x.id===activeTimerId);
@@ -1929,7 +1953,7 @@ function makeTodoRow(t,orderNum){
     <span class="todo-text" style="flex:1;${isOverdue?'color:#b01830;font-weight:500':''}">${isOverdue?'🚨 ':''}${t.text}</span>
     ${t.priority==='high'?`<span style="font-size:10px;font-weight:500;color:var(--acc)">HIGH</span>`:''}
     <span style="font-size:11px;color:var(--t2);font-variant-numeric:tabular-nums;min-width:42px;text-align:right">${elapsed>0?fmtHM(elapsed):''}</span>
-    <button style="font-size:10px;padding:2px 7px;border-radius:99px;border:0.5px solid var(--b2);background:${t.running?'var(--acc)':'var(--bg2)'};cursor:pointer;font-family:inherit;color:${t.running?'#fff':'var(--t2)'};" onclick="${t.running?'stopTodoTimer()':'startTodoTimer('+t.id+')'}">${t.running?'■':'▶'}</button>
+    <button style="font-size:10px;padding:2px 7px;border-radius:99px;border:0.5px solid var(--b2);background:${t.running?'var(--acc)':'var(--bg2)'};cursor:pointer;font-family:inherit;color:${t.running?'#fff':'var(--t2)'};" onclick="${t.running?'stopTodoTimer('+t.id+')':'startTodoTimer('+t.id+')'}">${t.running?'■':'▶'}</button>
     <button class="edit-btn" onclick="openTodoModal(${t.id})">수정</button>
     <button class="edit-btn" onclick="copyTodo(${t.id})" title="복사" style="padding:2px 8px;color:var(--t2)">복사</button>
   </div>`;
@@ -2130,7 +2154,10 @@ function dropTodoToUpcoming(e){
 function toggleTodo(id){
   const t=todos.find(x=>x.id===id);if(!t)return;
   t.done=!t.done;
-  if(t.done)recordTaskHistory(t); // 완료 시점의 실제 소요시간을 예측 데이터로 축적
+  if(t.done){
+    recordTaskHistory(t); // 완료 시점의 실제 소요시간을 예측 데이터로 축적
+    if(activeTimerId===id)stopTodoTimer(); // 실행 중이던 타이머가 있다면 완료 처리와 함께 자동 정지(방치되어 계속 도는 것 방지)
+  }
   if(t.linkedId){const wt=weeklyTodos.find(x=>x.id===t.linkedId);if(wt){wt.done=t.done;save(KEYS.weekly,weeklyTodos);}}
   save(KEYS.todos,todos);renderTodos();renderWeekly();
 }
@@ -2235,6 +2262,7 @@ function saveTodo(){
 function deleteTodo(){
   if(!editingTodoId||!confirm('삭제하시겠습니까?'))return;
   const t=todos.find(x=>x.id===editingTodoId);
+  if(activeTimerId===editingTodoId)stopTodoTimer(); // 실행 중인 타이머의 항목을 삭제하는 경우 타이머부터 정지
   if(t&&t.linkedId){weeklyTodos=weeklyTodos.filter(x=>x.id!==t.linkedId);save(KEYS.weekly,weeklyTodos);}
   todos=todos.filter(x=>x.id!==editingTodoId);
   save(KEYS.todos,todos);renderTodos();renderCalendar();renderWeekly();closeTodoModal();
@@ -2258,7 +2286,7 @@ function renderWorks(){
   const showPub=document.getElementById('show-published')?.checked;
   const visible=sortWorksWithSpinoffs(showPub?works:works.filter(w=>w.stage!=='출간'));
   const stages=showPub?stageOrder:stageOrder.filter(s=>s!=='출간');
-  const inProg=works.filter(w=>w.stage!=='출간').length;
+  const inProg=works.filter(w=>w.stage!=='출간'&&!w.subType).length;
   const st=document.getElementById('stat-works');if(st)st.textContent=inProg;
   ['works-kanban','dash-kanban'].forEach(kId=>{
     const kanban=document.getElementById(kId);if(!kanban)return;
@@ -2274,8 +2302,9 @@ function renderWorks(){
           const platColor=w.platform==='리디'?'#185fa5':w.platform==='시리즈'?'#15803d':w.platform==='카카오'?'#d97706':'#6b7280';
           const promoText=wp?wp.title:'';
           const isSpin=!!w.parentTitle;
+          const subLabel=w.subType||'외전';
           return`<div class="kcard" style="border-left:3px ${isSpin?'dashed':'solid'} ${platColor};${isSpin?'margin-left:10px':''}" draggable="true" ondragstart="dragWork(event,${w.id})">
-          <div style="font-weight:500;font-size:12px;${isSpin?'color:var(--t2);font-style:italic':''}">${isSpin?'↳ ':''}${w.title}${isSpin?' <span class="spinoff-badge">외전</span>':''}</div>
+          <div style="font-weight:500;font-size:12px;${isSpin?'color:var(--t2);font-style:italic':''}">${isSpin?'↳ ':''}${w.title}${isSpin?` <span class="spinoff-badge">${subLabel}</span>`:''}</div>
           <div style="color:var(--t2);font-size:11px;margin-top:2px">${w.author}${kId==='works-kanban'?' · '+w.gLabel:''}${isSpin?` · 본편: ${w.parentTitle}`:''}</div>
           ${promoText&&kId==='works-kanban'?`<div style="margin-top:4px"><span style="font-size:10px;padding:1px 7px;border-radius:99px;background:${platColor}22;color:${platColor};border:0.5px solid ${platColor}55;display:inline-block;font-weight:500">프로모션 · ${promoText}</span></div>`:''}
         </div>`;
@@ -2290,8 +2319,9 @@ function renderWorks(){
     const wp=promos.find(p=>p.works&&p.works.includes(w.title));
     const platColor=w.platform==='리디'?'#185fa5':w.platform==='시리즈'?'#15803d':w.platform==='카카오'?'#d97706':'inherit';
     const isSpin=!!w.parentTitle;
+    const subLabel=w.subType||'외전';
     return`<tr>
-    <td style="font-weight:500;${isSpin?'color:var(--t2);font-style:italic':''}">${isSpin?'<span style="margin-right:3px">↳</span>':''}${w.title}${isSpin?' <span class="spinoff-badge">외전</span>':''}</td><td style="color:var(--t2)">${w.author}</td>
+    <td style="font-weight:500;${isSpin?'color:var(--t2);font-style:italic':''}">${isSpin?'<span style="margin-right:3px">↳</span>':''}${w.title}${isSpin?` <span class="spinoff-badge">${subLabel}</span>`:''}</td><td style="color:var(--t2)">${w.author}</td>
     <td>${w.gLabel}</td><td><span class="badge ${stageBadge[w.stage]||'badge-gray'}">${w.stage}</span></td>
     <td style="color:${platColor};font-weight:500">${w.platform}</td>
     <td style="color:var(--t2);font-size:12px">${w.pubdate?w.pubdate.replace(/-/g,'.'):'−'}</td>
@@ -2318,16 +2348,22 @@ function toggleView(v){
   document.getElementById('vbk').className=v==='kanban'?'btn btn-sm btn-acc':'btn btn-sm';
   document.getElementById('vbl').className=v==='list'?'btn btn-sm btn-acc':'btn btn-sm';
 }
+function onWmParentChange(){
+  const hasParent=!!document.getElementById('wm-parent').value;
+  document.getElementById('wm-subtype').disabled=!hasParent;
+}
 function openWorkModal(id){
   editingWorkId=id;const w=id?works.find(x=>x.id===id):null;
   document.getElementById('work-modal-title').textContent=id?'작품 수정':'작품 추가';
   document.getElementById('wm-id').value=id||'';
-  // 본편 선택 목록: 본인 자신과, 이미 외전인 작품은 부모 후보에서 제외 (외전의 외전 방지)
+  // 본편 선택 목록: 본인 자신과, 이미 외전/단행인 작품은 부모 후보에서 제외 (중첩 방지)
   const parentSel=document.getElementById('wm-parent');
   const candidates=works.filter(x=>x.id!==id&&!x.parentTitle);
-  parentSel.innerHTML='<option value="">— 외전 아님 (본편 작품) —</option>'+
+  parentSel.innerHTML='<option value="">— 외전/단행 아님 (본편 작품) —</option>'+
     candidates.map(x=>`<option value="${x.title.replace(/"/g,'&quot;')}">${x.title}</option>`).join('');
   parentSel.value=w?(w.parentTitle||''):'';
+  document.getElementById('wm-subtype').value=w&&w.subType?w.subType:'외전';
+  onWmParentChange();
   document.getElementById('wm-title').value=w?w.title:'';
   document.getElementById('wm-author').value=w?w.author:'';
   document.getElementById('wm-genre').value=w?w.genre:'g-romance';
@@ -2349,11 +2385,12 @@ function saveWork(){
   const platform=document.getElementById('wm-platform').value;
   const author=document.getElementById('wm-author').value;
   const parentTitle=document.getElementById('wm-parent').value||'';
-  const obj={title,author,genre,gLabel:genreLabels[genre]||'',stage:document.getElementById('wm-stage').value,platform,deadline:document.getElementById('wm-deadline').value,pubdate,parentTitle};
+  const subType=parentTitle?(document.getElementById('wm-subtype').value||'외전'):'';
+  const obj={title,author,genre,gLabel:genreLabels[genre]||'',stage:document.getElementById('wm-stage').value,platform,deadline:document.getElementById('wm-deadline').value,pubdate,parentTitle,subType};
   const origTitleForChildren=window._wmOrigTitle||title;
   if(editingWorkId){const w=works.find(x=>x.id===editingWorkId);if(w)Object.assign(w,obj);}
   else{works.push({id:Date.now(),...obj});}
-  // 본편 제목이 바뀐 경우, 그 작품을 본편으로 참조하는 외전들의 parentTitle도 함께 갱신
+  // 본편 제목이 바뀐 경우, 그 작품을 본편으로 참조하는 외전/단행들의 parentTitle도 함께 갱신
   if(origTitleForChildren!==title){
     works.forEach(x=>{if(x.parentTitle===origTitleForChildren)x.parentTitle=title;});
   }
@@ -2377,7 +2414,7 @@ function saveWork(){
       stage:stageVal,
       promo:promoVal,
       note:existSchedIdx>=0?schedPub[existSchedIdx].note:'',
-      isSpinoff:!!parentTitle,
+      subType,
       parentTitle
     };
     if(existSchedIdx>=0)Object.assign(schedPub[existSchedIdx],schedObj); // title도 새 값으로 갱신됨
@@ -2386,9 +2423,13 @@ function saveWork(){
   }
   window._wmOrigTitle='';
 
-  // 단계='출간'이면 독점 정보 시트에 자동 추가 (없는 경우만)
-  if(stageVal==='출간'&&pubdate&&!exclusives.find(e=>e.title===title)){
-    exclusives.unshift({id:Date.now()+2,title,author,platform,launch:pubdate,e1s:pubdate,e1e:'',plat2:'',e2s:'',e2e:'',cost:0,note:'자동추가'});
+  // 단계='출간'이면 독점 정보 시트에 자동 추가 (없는 경우만), 이미 있으면 외전/단행 정보만 동기화
+  const existingExcl=exclusives.find(e=>e.title===origTitle);
+  if(stageVal==='출간'&&pubdate&&!existingExcl){
+    exclusives.unshift({id:Date.now()+2,title,author,platform,launch:pubdate,e1s:pubdate,e1e:'',plat2:'',e2s:'',e2e:'',cost:0,note:'자동추가',subType,parentTitle});
+    save(KEYS.exclusives,exclusives);
+  } else if(existingExcl){
+    existingExcl.title=title;existingExcl.subType=subType;existingExcl.parentTitle=parentTitle;
     save(KEYS.exclusives,exclusives);
   }
   renderWorks();renderSchedule();closeWorkModal();
@@ -2534,7 +2575,7 @@ function renderSchedule(){
         const urgent=dDay!==null&&dDay<=7&&dDay>=0;
         return`<tr>
           <td style="${urgent?'color:var(--acc);font-weight:500':'color:var(--t2)'}">${s.date?s.date.replace(/-/g,'.'):'-'}${dDay!==null&&dDay>=0?` <span class="badge badge-${dDay===0?'red':dDay<=3?'red':dDay<=7?'amber':'gray'}" style="font-size:10px">${dDay===0?'D-Day':'D-'+dDay}</span>`:''}</td>
-          <td style="font-weight:500;${s.isSpinoff?'color:var(--t2);font-style:italic':''}">${s.isSpinoff?'↳ ':''}${s.title}${s.isSpinoff?' <span class="spinoff-badge">외전</span>':''}</td>
+          <td style="font-weight:500;${s.subType?'color:var(--t2);font-style:italic':''}">${s.subType?'↳ ':''}${s.title}${s.subType?` <span class="spinoff-badge">${s.subType}</span>`:''}</td>
           <td style="color:var(--t2)">${s.author}</td>
           <td style="${platColor(s.platform)}">${s.platform}</td>
           <td><span class="badge ${stageBadge[s.stage]||'badge-gray'}">${s.stage}</span></td>
@@ -2653,13 +2694,13 @@ function renderSchedCal(){
     const isSun=dow===0;
     const isSat=dow===6;
     const numColor=isHoliday||isSun?'#e94560':isSat?'#5a8fa0':'';
-    const pubs=schedPub.filter(s=>s.date===dateStr).sort((a,b)=>(a.isSpinoff?1:0)-(b.isSpinoff?1:0));
+    const pubs=schedPub.filter(s=>s.date===dateStr).sort((a,b)=>(a.subType?1:0)-(b.subType?1:0));
     getPendingWorksByDate(dateStr).forEach(w=>monthPendings.push({...w,_day:d}));
     const holidayMark=isSubstitute?'<span class="sub-holiday-badge" title="대체휴일">대체</span>':isHoliday?'<span class="holiday-dot" title="공휴일">●</span>':'';
     div.innerHTML=`<div class="cal-day-num" style="${numColor?'color:'+numColor+';':''}">${d}${holidayMark}</div>`+pubs.map(s=>{
       const dDay=s.date?Math.round((new Date(s.date)-today)/864e5):null;
       const platCls=s.platform==='시리즈'?'sc-teal':s.platform==='리디'?'sc-blue':s.platform==='카카오'?'sc-amber':dDay===null?'sc-gray':dDay<=7?'sc-red':new Date(s.date).getMonth()===schedCalMonth?'sc-blue':'sc-teal';
-      return`<div class="sched-cal-event ${platCls}${s.isSpinoff?' spinoff':''}" title="${s.author} · ${s.note}${s.isSpinoff?' · 외전(본편: '+s.parentTitle+')':''}">${s.isSpinoff?'↳ ':''}${s.title} <span style="opacity:.7;font-size:9px">[${s.platform}]</span></div>`;
+      return`<div class="sched-cal-event ${platCls}${s.subType?' spinoff':''}" title="${s.author} · ${s.note}${s.subType?` · ${s.subType}(본편: ${s.parentTitle})`:''}">${s.subType?'↳ ':''}${s.title} <span style="opacity:.7;font-size:9px">[${s.platform}]</span></div>`;
     }).join('');
     body.appendChild(div);
   }
@@ -2700,7 +2741,7 @@ function renderSchedYear(){
   const platColor=p=>p==='시리즈'?'#15803d':p==='리디'?'#185fa5':p==='카카오'?'#d97706':'#6b7280';
   const months=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
   const todayYear=new Date().getFullYear(),todayMonth=new Date().getMonth();
-  const totalPubs=schedPub.filter(s=>{if(!s.date||s.isSpinoff)return false;return new Date(s.date).getFullYear()===schedYear;}).length;
+  const totalPubs=schedPub.filter(s=>{if(!s.date||s.subType)return false;return new Date(s.date).getFullYear()===schedYear;}).length;
   // 연간 요약 헤더
   body.innerHTML=`<div style="grid-column:1/-1;display:flex;align-items:center;gap:16px;padding:.5rem .75rem;background:var(--bg2);border-radius:var(--r);margin-bottom:4px">
     <span style="font-size:13px;font-weight:500;color:var(--t1)">${schedYear}년 총 출간 예정</span>
@@ -2714,8 +2755,8 @@ function renderSchedYear(){
   </div>`+months.map((mName,mi)=>{
     const pubs=schedPub
       .filter(s=>{if(!s.date)return false;const d=new Date(s.date);return d.getFullYear()===schedYear&&d.getMonth()===mi;})
-      .sort((a,b)=>a.date.localeCompare(b.date)||((a.isSpinoff?1:0)-(b.isSpinoff?1:0)));
-    const pubCount=pubs.filter(s=>!s.isSpinoff).length;
+      .sort((a,b)=>a.date.localeCompare(b.date)||((a.subType?1:0)-(b.subType?1:0)));
+    const pubCount=pubs.filter(s=>!s.subType).length;
     const pendings=works
       .filter(w=>(w.stage==='심사고'||w.stage==='투고')&&w.pubdate)
       .filter(w=>{const d=new Date(w.pubdate);return d.getFullYear()===schedYear&&d.getMonth()===mi;})
@@ -2732,11 +2773,11 @@ function renderSchedYear(){
       </div>
       ${pubs.map(s=>{
         const day=new Date(s.date).getDate();
-        const pc=s.isSpinoff?'var(--t2)':platColor(s.platform);
+        const pc=s.subType?'var(--t2)':platColor(s.platform);
         return`<div style="font-size:11px;margin-bottom:4px;display:flex;align-items:flex-start;gap:5px;line-height:1.4">
           <span style="color:${pc};font-size:10px;font-weight:700;min-width:22px;flex-shrink:0;padding-top:1px">${day}일</span>
           <div style="flex:1;min-width:0">
-            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:${s.isSpinoff?'var(--t2)':'var(--t1)'};${s.isSpinoff?'font-style:italic':''}" title="${s.title}">${s.isSpinoff?'↳ ':''}${s.title}${s.isSpinoff?' <span class="spinoff-badge">외전</span>':''}</div>
+            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:${s.subType?'var(--t2)':'var(--t1)'};${s.subType?'font-style:italic':''}" title="${s.title}">${s.subType?'↳ ':''}${s.title}${s.subType?` <span class="spinoff-badge">${s.subType}</span>`:''}</div>
             <div style="font-size:10px;color:${pc};font-weight:500">${s.platform}${s.stage?` · ${s.stage}`:''}</div>
           </div>
         </div>`;
@@ -2756,18 +2797,24 @@ function renderSchedYear(){
     </div>`;
   }).join('');
 }
+function onSmParentChange(){
+  const hasParent=!!document.getElementById('sm-parent').value;
+  document.getElementById('sm-subtype').disabled=!hasParent;
+}
 function openSchedModal(id){
   editingSchedId=id;const s=id?schedPub.find(x=>x.id===id):null;
   document.getElementById('sched-modal-title').textContent=id?'출간 일정 수정':'출간 일정 등록';
   document.getElementById('sm-id').value=id||'';
-  // 본편 선택 목록: 이미 외전으로 등록된 작품은 부모 후보에서 제외 (외전의 외전 방지), 자기 자신도 제외
+  // 본편 선택 목록: 이미 외전/단행으로 등록된 작품은 부모 후보에서 제외 (중첩 방지), 자기 자신도 제외
   const parentSel=document.getElementById('sm-parent');
   const candidates=works.filter(w=>!w.parentTitle&&w.title!==(s?s.title:''));
-  parentSel.innerHTML='<option value="">— 외전 아님 (본편 작품) —</option>'+
+  parentSel.innerHTML='<option value="">— 외전/단행 아님 (본편 작품) —</option>'+
     candidates.map(w=>`<option value="${w.title.replace(/"/g,'&quot;')}">${w.title}</option>`).join('');
   // 현재 값: 이 일정 항목에 저장된 parentTitle 우선, 없으면 연결된 작품(works)의 parentTitle 참고
   const linkedW=s?works.find(w=>w.title===s.title):null;
   parentSel.value=s?(s.parentTitle||(linkedW?linkedW.parentTitle:'')||''):'';
+  document.getElementById('sm-subtype').value=(s&&s.subType)||(linkedW&&linkedW.subType)||'외전';
+  onSmParentChange();
   document.getElementById('sm-title').value=s?s.title:'';
   document.getElementById('sm-author').value=s?s.author:'';
   document.getElementById('sm-platform').value=s?s.platform:'리디';
@@ -2783,8 +2830,9 @@ function closeSchedModal(){document.getElementById('sched-modal').style.display=
 function saveSched(){
   const title=document.getElementById('sm-title').value.trim();if(!title)return;
   const parentTitle=document.getElementById('sm-parent').value||'';
+  const subType=parentTitle?(document.getElementById('sm-subtype').value||'외전'):'';
   const obj={title,author:document.getElementById('sm-author').value,platform:document.getElementById('sm-platform').value,date:document.getElementById('sm-date').value,stage:document.getElementById('sm-stage').value,promo:document.getElementById('sm-promo').value||'-',note:document.getElementById('sm-note').value};
-  obj.isSpinoff=!!parentTitle;
+  obj.subType=subType;
   obj.parentTitle=parentTitle;
   // 심사고/투고는 아직 확정 전이므로 출간 일정표(확정 캘린더)에는 올리지 않고
   // 아래 역방향 동기화를 통해 작품 쪽 pubdate/stage로만 반영 → 캘린더엔 '미확정' 스타일로 노출
@@ -2796,7 +2844,7 @@ function saveSched(){
     else{schedPub.unshift({id:Date.now(),...obj});}
   }
   save(KEYS.schedPub,schedPub);
-  // 역방향: 같은 작품(수정 전 제목 기준 매칭)에 출간일·프로모션·단계·제목·외전 여부 반영
+  // 역방향: 같은 작품(수정 전 제목 기준 매칭)에 출간일·프로모션·단계·제목·외전/단행 여부 반영
   const origTitleS = window._smOrigTitle || obj.title;
   const linkedWork = works.find(w => w.title === origTitleS);
   if(linkedWork){
@@ -2805,6 +2853,7 @@ function saveSched(){
     if(obj.promo && obj.promo !== '-') linkedWork.deadline = obj.promo;
     if(obj.stage) linkedWork.stage = obj.stage;
     linkedWork.parentTitle = parentTitle;
+    linkedWork.subType = subType;
     save(KEYS.works, works);
     renderWorks();
   } else {
@@ -2815,15 +2864,19 @@ function saveSched(){
       genre:defGenre,gLabel:genreLabels[defGenre]||'',
       stage:obj.stage||'심사고',platform:obj.platform,
       deadline:(obj.promo&&obj.promo!=='-')?obj.promo:'',pubdate:obj.date||'',
-      parentTitle
+      parentTitle,subType
     });
     save(KEYS.works,works);
     renderWorks();
   }
   window._smOrigTitle = '';
-  // 단계='출간'이면 독점 정보 시트 자동 추가
-  if(obj.stage==='출간'&&obj.date&&!exclusives.find(e=>e.title===obj.title)){
-    exclusives.unshift({id:Date.now()+2,title:obj.title,author:obj.author,platform:obj.platform,launch:obj.date,e1s:obj.date,e1e:'',plat2:'',e2s:'',e2e:'',cost:0,note:'자동추가'});
+  // 단계='출간'이면 독점 정보 시트 자동 추가, 이미 있으면 외전/단행 정보만 동기화
+  const existingExclS=exclusives.find(e=>e.title===origTitleS);
+  if(obj.stage==='출간'&&obj.date&&!existingExclS){
+    exclusives.unshift({id:Date.now()+2,title:obj.title,author:obj.author,platform:obj.platform,launch:obj.date,e1s:obj.date,e1e:'',plat2:'',e2s:'',e2e:'',cost:0,note:'자동추가',subType,parentTitle});
+    save(KEYS.exclusives,exclusives);
+  } else if(existingExclS){
+    existingExclS.title=obj.title;existingExclS.subType=subType;existingExclS.parentTitle=parentTitle;
     save(KEYS.exclusives,exclusives);
   }
   renderSchedule();
@@ -2852,10 +2905,11 @@ function renderExclusive(){
   });
   const alertHTML=alerts.sort((a,b)=>a.d-b.d).map(a=>`<div class="excl-alert${a.d<=14?' urgent':''}"><span style="font-size:16px;flex-shrink:0">${a.d<=7?'🔴':'🟡'}</span><div style="flex:1"><strong>${a.title}</strong> ${a.l}${a.l==='출간'?'':' 독점만료'} <strong style="color:${a.d<=7?'#b01830':'#8a5c00'}">${a.d===0?'오늘':a.d+'일 후'}</strong> (${fmtD(a.date)})</div></div>`).join('');
   ['excl-alerts','excl-alerts-page'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=alertHTML;});
-  const active=exclusives.filter(ex=>[ex.e1e,ex.e2e].filter(Boolean).some(d=>daysUntil(d)>0)).length;
-  const expired=exclusives.filter(ex=>{const ds=[ex.e1e,ex.e2e].filter(Boolean);return ds.length>0&&ds.every(d=>daysUntil(d)<=0);}).length;
-  const s50=exclusives.filter(ex=>[ex.e1e,ex.e2e].some(d=>{if(!d)return false;const dd=daysUntil(d);return dd>=0&&dd<=50;})).length;
-  ['excl-stat-total','excl-stat-d50','excl-stat-active','excl-stat-exp'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.textContent=[exclusives.length,s50,active,expired][i];});
+  const mainExclusives=exclusives.filter(ex=>!ex.subType); // 외전/단행은 출간 종수 집계에서 제외
+  const active=mainExclusives.filter(ex=>[ex.e1e,ex.e2e].filter(Boolean).some(d=>daysUntil(d)>0)).length;
+  const expired=mainExclusives.filter(ex=>{const ds=[ex.e1e,ex.e2e].filter(Boolean);return ds.length>0&&ds.every(d=>daysUntil(d)<=0);}).length;
+  const s50=mainExclusives.filter(ex=>[ex.e1e,ex.e2e].some(d=>{if(!d)return false;const dd=daysUntil(d);return dd>=0&&dd<=50;})).length;
+  ['excl-stat-total','excl-stat-d50','excl-stat-active','excl-stat-exp'].forEach((id,i)=>{const el=document.getElementById(id);if(el)el.textContent=[mainExclusives.length,s50,active,expired][i];});
 
   const body=document.getElementById('excl-body');if(!body)return;
   if(!exclusives.length){
@@ -2874,13 +2928,27 @@ function renderExclusive(){
       const d=e?daysUntil(e):null,urgent=d!==null&&d>=0&&d<=50,exp=d!==null&&d<0;
       return`<td style="font-size:12px">${fmtD(s)}</td><td style="font-size:12px;${urgent?'color:var(--acc);font-weight:500':exp?'color:var(--t2)':''}">${fmtD(e)}${urgent?` <span class="badge badge-red" style="font-size:10px">D-${d}</span>`:''}${exp?` <span class="badge badge-gray" style="font-size:10px">만료</span>`:''}</td>`;
     };
-    return`<tr><td style="font-weight:500;white-space:nowrap">${ex.title}</td><td style="color:var(--t2)">${ex.author}</td><td><span style="font-size:12px;font-weight:500;${ex.platform==='리디'?'color:#185fa5':ex.platform==='시리즈'?'color:#15803d':ex.platform==='카카오'?'color:#a16207':''}">${ex.platform}</span></td><td style="font-size:12px">${fmtD(ex.launch)}</td>${mkCell(ex.e1s,ex.e1e)}<td style="font-size:12px;color:var(--t2)">${ex.plat2||'-'}</td>${mkCell(ex.e2s,ex.e2e)}<td style="font-size:12px;color:var(--t2)">${ex.cost?ex.cost.toLocaleString()+'원':'-'}</td><td style="font-size:12px;color:var(--t2);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ex.note}</td><td><button class="edit-btn" onclick="openExclModal(${ex.id})">수정</button></td></tr>`;
+    const isSpin=!!ex.parentTitle;
+    const subLabel=ex.subType||'외전';
+    return`<tr><td style="font-weight:500;white-space:nowrap;${isSpin?'color:var(--t2);font-style:italic':''}">${isSpin?'↳ ':''}${ex.title}${isSpin?` <span class="spinoff-badge">${subLabel}</span>`:''}</td><td style="color:var(--t2)">${ex.author}</td><td><span style="font-size:12px;font-weight:500;${ex.platform==='리디'?'color:#185fa5':ex.platform==='시리즈'?'color:#15803d':ex.platform==='카카오'?'color:#a16207':''}">${ex.platform}</span></td><td style="font-size:12px">${fmtD(ex.launch)}</td>${mkCell(ex.e1s,ex.e1e)}<td style="font-size:12px;color:var(--t2)">${ex.plat2||'-'}</td>${mkCell(ex.e2s,ex.e2e)}<td style="font-size:12px;color:var(--t2)">${ex.cost?ex.cost.toLocaleString()+'원':'-'}</td><td style="font-size:12px;color:var(--t2);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ex.note}</td><td><button class="edit-btn" onclick="openExclModal(${ex.id})">수정</button></td></tr>`;
   }).join('');
+}
+function onEmParentChange(){
+  const hasParent=!!document.getElementById('em-parent').value;
+  document.getElementById('em-subtype').disabled=!hasParent;
 }
 function openExclModal(id){
   editingExclId=id;const ex=id?exclusives.find(x=>x.id===id):null;
   document.getElementById('excl-modal-title').textContent=id?'독점 정보 수정':'독점 작품 등록';
   document.getElementById('em-id').value=id||'';
+  // 본편 선택 목록: 이미 외전/단행으로 등록된 작품은 부모 후보에서 제외, 자기 자신도 제외
+  const parentSel=document.getElementById('em-parent');
+  const candidates=works.filter(w=>!w.parentTitle&&w.title!==(ex?ex.title:''));
+  parentSel.innerHTML='<option value="">— 외전/단행 아님 (본편 작품) —</option>'+
+    candidates.map(w=>`<option value="${w.title.replace(/"/g,'&quot;')}">${w.title}</option>`).join('');
+  parentSel.value=ex?(ex.parentTitle||''):'';
+  document.getElementById('em-subtype').value=(ex&&ex.subType)||'외전';
+  onEmParentChange();
   ['title','author','launch','e1s','e1e','e2s','e2e','cost','note'].forEach(k=>{const el=document.getElementById('em-'+k);if(el)el.value=ex?ex[k]||'':'';}); const p2el=document.getElementById('em-plat2');if(p2el)p2el.value=ex?ex.plat2||'':'';;
   if(ex)document.getElementById('em-platform').value=ex.platform;
   document.getElementById('em-del-btn').style.display=id?'inline-block':'none';
@@ -2895,6 +2963,14 @@ function openExclModalPrefill(title,author,platform,date){
   editingExclId=null;
   document.getElementById('excl-modal-title').textContent='독점 작품 등록';
   document.getElementById('em-id').value='';
+  const parentSel=document.getElementById('em-parent');
+  const candidates=works.filter(w=>!w.parentTitle&&w.title!==title);
+  parentSel.innerHTML='<option value="">— 외전/단행 아님 (본편 작품) —</option>'+
+    candidates.map(w=>`<option value="${w.title.replace(/"/g,'&quot;')}">${w.title}</option>`).join('');
+  const linkedW=works.find(w=>w.title===title);
+  parentSel.value=linkedW?(linkedW.parentTitle||''):'';
+  document.getElementById('em-subtype').value=(linkedW&&linkedW.subType)||'외전';
+  onEmParentChange();
   document.getElementById('em-title').value=title;
   document.getElementById('em-author').value=author;
   document.getElementById('em-platform').value=platform;
@@ -2912,7 +2988,9 @@ function closeExclModal(){document.getElementById('excl-modal').style.display='n
 function saveExcl(){
   const title=document.getElementById('em-title').value.trim();if(!title)return;
   const launch=document.getElementById('em-launch').value;
-  const obj={title,author:document.getElementById('em-author').value,platform:document.getElementById('em-platform').value,launch,e1s:launch,e1e:document.getElementById('em-e1e').value,plat2:document.getElementById('em-plat2').value,e2s:document.getElementById('em-e2s').value,e2e:document.getElementById('em-e2e').value,cost:parseInt(document.getElementById('em-cost').value)||0,note:document.getElementById('em-note').value};
+  const parentTitle=document.getElementById('em-parent').value||'';
+  const subType=parentTitle?(document.getElementById('em-subtype').value||'외전'):'';
+  const obj={title,author:document.getElementById('em-author').value,platform:document.getElementById('em-platform').value,launch,e1s:launch,e1e:document.getElementById('em-e1e').value,plat2:document.getElementById('em-plat2').value,e2s:document.getElementById('em-e2s').value,e2e:document.getElementById('em-e2e').value,cost:parseInt(document.getElementById('em-cost').value)||0,note:document.getElementById('em-note').value,parentTitle,subType};
   if(editingExclId){const ex=exclusives.find(x=>x.id===editingExclId);if(ex)Object.assign(ex,obj);}
   else{exclusives.unshift({id:Date.now(),...obj});}
   save(KEYS.exclusives,exclusives);renderExclusive();renderCalendar();closeExclModal();
