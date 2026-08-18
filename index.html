@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>업무 대시보드</title>
+<title>novelED — 웹소설 편집자 대시보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&family=Pretendard:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
@@ -1090,10 +1090,11 @@ localStorage.setItem = function(k, v) {
   <div class="card" style="width:420px;max-width:92vw">
     <div style="font-size:15px;font-weight:500;margin-bottom:1rem" id="weekly-modal-title">위클리 할 일 추가</div>
     <input type="hidden" id="wt-id">
-    <!-- 업무/개인 타입 선택 -->
+    <!-- 업무/개인/협업 타입 선택 -->
     <div style="display:flex;gap:0;margin-bottom:10px;border:0.5px solid var(--b2);border-radius:var(--r);overflow:hidden">
       <button id="wt-type-work" onclick="setWtType('work')" style="flex:1;font-size:12px;padding:6px 0;border:none;background:var(--acc);color:#fff;cursor:pointer;font-family:inherit">📋 업무</button>
       <button id="wt-type-personal" onclick="setWtType('personal')" style="flex:1;font-size:12px;padding:6px 0;border:none;background:var(--bg2);color:var(--t2);cursor:pointer;font-family:inherit">🪼 개인</button>
+      <button id="wt-type-collab" onclick="setWtType('collab')" style="flex:1;font-size:12px;padding:6px 0;border:none;background:var(--bg2);color:var(--t2);cursor:pointer;font-family:inherit">👤 협업</button>
     </div>
     <input type="text" id="wt-text" placeholder="내용" style="width:100%;margin-bottom:8px">
     <div id="wt-work-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
@@ -1117,6 +1118,16 @@ localStorage.setItem = function(k, v) {
       <label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer">
         <input type="checkbox" id="wt-no-overtime"> 야근 불가
       </label>
+    </div>
+    <!-- 작가/일러스트레이터/외주자 등 협업자에게 받아야 할 것 -->
+    <div id="wt-collab-fields" style="display:none;margin-bottom:8px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px">
+        <input type="text" id="wt-collab-name" list="wt-collab-name-list" placeholder="협업자 이름" style="width:100%">
+        <datalist id="wt-collab-name-list"></datalist>
+        <select id="wt-collab-role" style="width:100%"><option value="작가">작가</option><option value="일러스트">일러스트</option><option value="외주">외주</option><option value="기타">기타</option></select>
+      </div>
+      <input type="text" id="wt-collab-work" placeholder="작품명 (선택)" style="width:100%;margin-bottom:6px">
+      <input type="date" id="wt-collab-date" style="width:100%">
     </div>
     <input type="hidden" id="wt-type" value="work">
     <div style="display:flex;gap:8px">
@@ -3018,7 +3029,7 @@ function renderAuthors(){
     <td style="font-size:12px;color:var(--t2)">${a.works}</td>
     <td style="font-size:12px;color:var(--t2)">${a.last}</td>
     <td><span class="badge ${sBadge[a.status]||'badge-gray'}">${a.status}</span></td>
-    <td><div class="row-actions"><button class="edit-btn" onclick="openAuthorModal(${a.id})">수정</button></div></td>
+    <td><div class="row-actions"><button class="edit-btn" onclick="openWeeklyModalCollabFor('${a.name.replace(/'/g,"\\'")}')" style="color:#54524a">+ 마감일</button><button class="edit-btn" onclick="openAuthorModal(${a.id})">수정</button></div></td>
   </tr>`).join('');
 }
 function openAuthorModal(id){
@@ -3384,7 +3395,8 @@ function renderWeekly(){
     const holidayMark=isSubstitute?'<span class="sub-holiday-badge" title="대체휴일">대체</span>':isHoliday?'<span class="holiday-dot" title="공휴일">●</span>':'';
     const allItems=weeklyTodos.filter(t=>t.day===dayIdx&&normalizeWs(t.weekStart)===wsStr);
     const personalItems=allItems.filter(t=>t.type==='personal');
-    const dayItems=allItems.filter(t=>t.type!=='personal').sort((a,b)=>a.done===b.done?0:a.done?1:-1);
+    const collabItems=allItems.filter(t=>t.type==='collab').sort((a,b)=>a.done===b.done?0:a.done?1:-1);
+    const dayItems=allItems.filter(t=>t.type!=='personal'&&t.type!=='collab').sort((a,b)=>a.done===b.done?0:a.done?1:-1);
     // 개인일정 배너
     const bannerHtml=personalItems.length?personalItems.map(p=>{
       const bg=p.noOvertime?'#fef3c7':p.done?'#f3f4f6':'#fce7f3';
@@ -3405,6 +3417,7 @@ function renderWeekly(){
           </div>
           <div style="display:flex;gap:3px">
             <button class="edit-btn" onclick="openWeeklyModalPersonal('${dateStr}')" style="padding:1px 6px;font-size:10px;color:#be185d">🪼</button>
+            <button class="edit-btn" onclick="openWeeklyModalCollab('${dateStr}',${dayIdx})" style="padding:1px 6px;font-size:10px;color:#54524a">👤</button>
             <button class="edit-btn" onclick="openWeeklyModalOnDate('${dateStr}')" style="padding:1px 7px">+</button>
           </div>
         </div>
@@ -3416,6 +3429,17 @@ function renderWeekly(){
             <button class="edit-btn" onclick="openWeeklyModal(${t.id},0)" style="padding:1px 6px;font-size:10px">수정</button>
           </div>`).join(''):'<div style="font-size:11px;color:var(--t2)">없음</div>'}
         </div>
+        ${collabItems.length?`<div style="margin-top:8px;padding-top:7px;border-top:1px solid var(--b1)">
+          <div style="font-size:10px;color:var(--t2);font-weight:600;margin-bottom:4px">👤 협업자 일정</div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            ${collabItems.map(t=>`<div style="display:flex;align-items:center;gap:5px;font-size:11px">
+              <input type="checkbox" ${t.done?'checked':''} onchange="toggleWeeklyTodo(${t.id})" style="width:12px;height:12px;flex-shrink:0">
+              <span style="color:var(--t2);${t.done?'text-decoration:line-through':''}">${t.collabName}${t.collabWork?' · '+t.collabWork:''}</span>
+              <span style="flex:1;${t.done?'text-decoration:line-through;color:var(--t2)':''}">${t.text}</span>
+              <button class="edit-btn" onclick="openWeeklyModal(${t.id},0)" style="padding:1px 6px;font-size:10px">수정</button>
+            </div>`).join('')}
+          </div>
+        </div>`:''}
       </div>
     </div>`;
   };
@@ -3477,6 +3501,27 @@ function openWeeklyModalOnDate(dateStr){
   document.getElementById('weekly-modal').style.display='flex';
   setTimeout(()=>document.getElementById('wt-text').focus(),50);
 }
+// 작가 탭에서 사람을 먼저 고르고 마감일 추가 (오늘 날짜 기본)
+function openWeeklyModalCollabFor(name){
+  const navEl=document.querySelector(".nav-item[onclick*=\"showPage('weekly'\"]");
+  if(navEl)showPage('weekly',navEl); // 위클리 탭으로 이동해서 바로 캘린더 위치도 확인 가능하게
+  openWeeklyModalCollab(isoDate(new Date()),new Date().getDay());
+  document.getElementById('wt-collab-name').value=name;
+}
+function openWeeklyModalCollab(dateStr,dayIdx){
+  editingWeeklyId=null;
+  document.getElementById('weekly-modal-title').textContent='협업자 일정 추가';
+  document.getElementById('wt-id').value='';
+  document.getElementById('wt-text').value='';
+  document.getElementById('wt-collab-name').value='';
+  document.getElementById('wt-collab-role').value='작가';
+  document.getElementById('wt-collab-work').value='';
+  document.getElementById('wt-collab-date').value=dateStr;
+  document.getElementById('wt-del-btn').style.display='none';
+  setWtType('collab');
+  document.getElementById('weekly-modal').style.display='flex';
+  setTimeout(()=>document.getElementById('wt-collab-name').focus(),50);
+}
 
 function openWeeklyModal(id,defaultDay=0){
   editingWeeklyId=id;
@@ -3507,19 +3552,33 @@ function openWeeklyModal(id,defaultDay=0){
     document.getElementById('wt-time-p').value=t.time||'';
     document.getElementById('wt-no-overtime').checked=t.noOvertime||false;
   }
+  if(type==='collab'){
+    document.getElementById('wt-collab-name').value=t.collabName||'';
+    document.getElementById('wt-collab-role').value=t.collabRole||'작가';
+    document.getElementById('wt-collab-work').value=t.collabWork||'';
+    document.getElementById('wt-collab-date').value=document.getElementById('wt-date').value; // 요일 계산에 쓰인 날짜와 동일하게 표시
+  }
   document.getElementById('weekly-modal').style.display='flex';
   setTimeout(()=>document.getElementById('wt-text').focus(),50);
 }
 function setWtType(type){
   document.getElementById('wt-type').value=type;
-  const isWork=type==='work';
-  document.getElementById('wt-work-fields').style.display=isWork?'grid':'none';
-  document.getElementById('wt-personal-fields').style.display=isWork?'none':'block';
-  document.getElementById('wt-type-work').style.background=isWork?'var(--acc)':'var(--bg2)';
-  document.getElementById('wt-type-work').style.color=isWork?'#fff':'var(--t2)';
-  document.getElementById('wt-type-personal').style.background=isWork?'var(--bg2)':'#fce7f3';
-  document.getElementById('wt-type-personal').style.color=isWork?'var(--t2)':'#be185d';
-  if(isWork)onWtCatChange();
+  document.getElementById('wt-work-fields').style.display=type==='work'?'grid':'none';
+  document.getElementById('wt-personal-fields').style.display=type==='personal'?'block':'none';
+  document.getElementById('wt-collab-fields').style.display=type==='collab'?'block':'none';
+  const setBtn=(id,active,activeBg,activeColor)=>{
+    const el=document.getElementById(id);
+    el.style.background=active?activeBg:'var(--bg2)';
+    el.style.color=active?activeColor:'var(--t2)';
+  };
+  setBtn('wt-type-work',type==='work','var(--acc)','#fff');
+  setBtn('wt-type-personal',type==='personal','#fce7f3','#be185d');
+  setBtn('wt-type-collab',type==='collab','#e8e6de','#54524a');
+  if(type==='work')onWtCatChange();
+  if(type==='collab'){
+    const dl=document.getElementById('wt-collab-name-list');
+    if(dl)dl.innerHTML=authors.map(a=>`<option value="${a.name.replace(/"/g,'&quot;')}">`).join('');
+  }
 }
 // 카테고리에 따라 글자수/예측 UI 및 1교·2교 세부단계 노출 여부 전환 (위클리 모달용)
 function onWtCatChange(){
@@ -3574,6 +3633,30 @@ function saveWeeklyTodo(){
     const nowDow=now.getDay();
     const thisWs=new Date(now.getFullYear(),now.getMonth(),now.getDate()-nowDow);
     weekOffset=Math.round((wsDate-thisWs)/(7*864e5));
+    renderWeekly();closeWeeklyModal();return;
+  }
+
+  if(type==='collab'){
+    // 협업자(작가/일러스트/외주)에게 받아야 할 것 저장 — 내 업무 소요시간 통계에는 잡히지 않음
+    const collabName=document.getElementById('wt-collab-name').value.trim();if(!collabName)return;
+    const collabRole=document.getElementById('wt-collab-role').value;
+    const collabWork=document.getElementById('wt-collab-work').value.trim();
+    const dateStrC=document.getElementById('wt-collab-date').value;if(!dateStrC)return;
+    const dateObjC=new Date(dateStrC+'T00:00:00');
+    const dowC=dateObjC.getDay();
+    const wsDateC=new Date(dateObjC.getFullYear(),dateObjC.getMonth(),dateObjC.getDate()-dowC);
+    const wsC=isoDate(wsDateC);
+    if(editingWeeklyId){
+      const wt=weeklyTodos.find(x=>x.id===editingWeeklyId);
+      if(wt){wt.text=text;wt.day=dowC;wt.weekStart=wsC;wt.type='collab';wt._dayBase='sun';wt.collabName=collabName;wt.collabRole=collabRole;wt.collabWork=collabWork;}
+    } else {
+      weeklyTodos.push({id:Date.now(),text,day:dowC,weekStart:wsC,done:false,type:'collab',_dayBase:'sun',collabName,collabRole,collabWork});
+    }
+    save(KEYS.weekly,weeklyTodos);
+    const nowC=new Date();nowC.setHours(0,0,0,0);
+    const nowDowC=nowC.getDay();
+    const thisWsC=new Date(nowC.getFullYear(),nowC.getMonth(),nowC.getDate()-nowDowC);
+    weekOffset=Math.round((wsDateC-thisWsC)/(7*864e5));
     renderWeekly();closeWeeklyModal();return;
   }
 
