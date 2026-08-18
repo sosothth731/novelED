@@ -852,7 +852,7 @@ localStorage.setItem = function(k, v) {
     <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5M11 13l9-9M15 3h6v6"/></svg>프로모션
   </div>
   <div class="nav-item" onclick="showPage('authors',this)">
-    <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>작가 관리
+    <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>협업자 관리
   </div>
   <div class="nav-item" onclick="showPage('contacts',this)">
     <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>컨택 현황
@@ -1407,20 +1407,27 @@ localStorage.setItem = function(k, v) {
 
 <!-- AUTHORS -->
 <div id="page-authors" class="page">
-  <div class="page-title">작가 관리</div>
+  <div class="page-title">협업자 관리</div>
   <div class="grid4" style="margin-bottom:14px">
-    <div class="card-sm"><div class="stat-val" id="auth-stat-total">0</div><div class="stat-lbl">전체 작가</div></div>
+    <div class="card-sm"><div class="stat-val" id="auth-stat-total">0</div><div class="stat-lbl">전체 협업자</div></div>
     <div class="card-sm"><div class="stat-val" style="color:var(--a3)" id="auth-stat-active">0</div><div class="stat-lbl">활성</div></div>
     <div class="card-sm"><div class="stat-val" style="color:var(--a2)" id="auth-stat-comm">0</div><div class="stat-lbl">소통 필요</div></div>
     <div class="card-sm"><div class="stat-val" style="color:var(--t2)" id="auth-stat-etc">0</div><div class="stat-lbl">기타</div></div>
   </div>
   <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-      <div class="sec-label" style="margin:0">작가 목록</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
+      <div class="sec-label" style="margin:0">협업자 목록</div>
       <button class="btn btn-sm btn-acc" onclick="openAuthorModal(null)">+ 등록</button>
     </div>
-    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:520px">
-      <thead><tr><th>작가명</th><th>이메일</th><th>진행 작품</th><th>최근 소통</th><th>상태</th><th></th></tr></thead>
+    <div style="display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap" id="author-role-filters">
+      <div class="chip sel" onclick="filterAuthorRole('전체',this)">전체</div>
+      <div class="chip" onclick="filterAuthorRole('작가',this)">작가</div>
+      <div class="chip" onclick="filterAuthorRole('일러스트',this)">일러스트</div>
+      <div class="chip" onclick="filterAuthorRole('외주',this)">외주</div>
+      <div class="chip" onclick="filterAuthorRole('기타',this)">기타</div>
+    </div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:560px">
+      <thead><tr><th>이름</th><th>역할</th><th>이메일</th><th>진행 작품</th><th>최근 소통</th><th>상태</th><th></th></tr></thead>
       <tbody id="author-tbody"></tbody>
     </table></div>
   </div>
@@ -1428,11 +1435,15 @@ localStorage.setItem = function(k, v) {
 
 <div id="author-modal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)closeAuthorModal()" onkeydown="if(event.key==='Enter'&&event.target.tagName!=='TEXTAREA'&&event.target.tagName!=='SELECT'){event.stopPropagation();saveAuthor()}">
   <div class="card" style="width:460px;max-width:92vw">
-    <div style="font-size:15px;font-weight:500;margin-bottom:1rem" id="author-modal-title">작가 등록</div>
+    <div style="font-size:15px;font-weight:500;margin-bottom:1rem" id="author-modal-title">협업자 등록</div>
     <input type="hidden" id="am-id">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-      <input type="text" id="am-name" placeholder="작가명" style="width:100%">
+      <input type="text" id="am-name" placeholder="이름" style="width:100%">
+      <select id="am-role" style="width:100%"><option value="작가">작가</option><option value="일러스트">일러스트</option><option value="외주">외주</option><option value="기타">기타</option></select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
       <input type="email" id="am-email" placeholder="이메일" style="width:100%">
+      <input type="text" id="am-contact" placeholder="연락처 (전화/카톡 등, 선택)" style="width:100%">
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
       <select id="am-status" style="width:100%"><option>활성</option><option>소통 필요</option><option>협의 중</option><option>휴재</option></select>
@@ -3012,9 +3023,17 @@ function deleteExcl(){
   save(KEYS.exclusives,exclusives);renderExclusive();renderCalendar();closeExclModal();
 }
 
-// ══════ AUTHORS ══════
+// ══════ AUTHORS (협업자: 작가/일러스트/외주/기타) ══════
 const sBadge={활성:'badge-green','소통 필요':'badge-amber','협의 중':'badge-amber',휴재:'badge-gray'};
+const roleBadge={작가:'badge-blue',일러스트:'badge-amber',외주:'badge-green',기타:'badge-gray'};
 let editingAuthorId=null;
+let authorRoleFilter='전체';
+function filterAuthorRole(role,el){
+  authorRoleFilter=role;
+  document.querySelectorAll('#author-role-filters .chip').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  renderAuthors();
+}
 function renderAuthors(){
   const tb=document.getElementById('author-tbody');
   const at=document.getElementById('auth-stat-total'),aa=document.getElementById('auth-stat-active'),ac=document.getElementById('auth-stat-comm'),ae=document.getElementById('auth-stat-etc');
@@ -3022,9 +3041,14 @@ function renderAuthors(){
   if(aa)aa.textContent=authors.filter(a=>a.status==='활성').length;
   if(ac)ac.textContent=authors.filter(a=>a.status==='소통 필요').length;
   if(ae)ae.textContent=authors.filter(a=>a.status!=='활성'&&a.status!=='소통 필요').length;
-  if(!authors.length){tb.innerHTML=`<tr><td colspan="6"><div class="empty-state">등록된 작가 없음</div></td></tr>`;return;}
-  tb.innerHTML=authors.map(a=>`<tr>
+  // 역할 필드가 없던 기존(구버전) 데이터는 '작가'로 간주 (별도 마이그레이션 없이 항상 안전하게 처리)
+  const withRole=authors.map(a=>({...a,_role:a.role||'작가'}));
+  const filtered=authorRoleFilter==='전체'?withRole:withRole.filter(a=>a._role===authorRoleFilter);
+  if(!authors.length){tb.innerHTML=`<tr><td colspan="7"><div class="empty-state">등록된 협업자 없음</div></td></tr>`;return;}
+  if(!filtered.length){tb.innerHTML=`<tr><td colspan="7"><div class="empty-state">해당 역할의 협업자 없음</div></td></tr>`;return;}
+  tb.innerHTML=filtered.map(a=>`<tr>
     <td><div style="display:flex;align-items:center;gap:8px"><div class="avatar">${a.name.slice(0,2)}</div>${a.name}</div></td>
+    <td><span class="badge ${roleBadge[a._role]||'badge-gray'}">${a._role}</span></td>
     <td style="font-size:12px;color:var(--t2)">${a.email}</td>
     <td style="font-size:12px;color:var(--t2)">${a.works}</td>
     <td style="font-size:12px;color:var(--t2)">${a.last}</td>
@@ -3034,10 +3058,12 @@ function renderAuthors(){
 }
 function openAuthorModal(id){
   editingAuthorId=id;const a=id?authors.find(x=>x.id===id):null;
-  document.getElementById('author-modal-title').textContent=id?'작가 정보 수정':'작가 등록';
+  document.getElementById('author-modal-title').textContent=id?'협업자 정보 수정':'협업자 등록';
   document.getElementById('am-id').value=id||'';
   document.getElementById('am-name').value=a?a.name:'';
+  document.getElementById('am-role').value=a?(a.role||'작가'):'작가';
   document.getElementById('am-email').value=a?a.email:'';
+  document.getElementById('am-contact').value=a?(a.contact||''):'';
   document.getElementById('am-status').value=a?a.status:'활성';
   document.getElementById('am-works').value=a?a.works:'';
   document.getElementById('am-del-btn').style.display=id?'inline-block':'none';
@@ -3045,8 +3071,8 @@ function openAuthorModal(id){
 }
 function closeAuthorModal(){document.getElementById('author-modal').style.display='none';editingAuthorId=null;}
 function saveAuthor(){
-  const name=document.getElementById('am-name').value.trim();if(!name){alert('작가명 필수');return;}
-  const obj={name,email:document.getElementById('am-email').value||'-',status:document.getElementById('am-status').value,works:document.getElementById('am-works').value||'-',last:'오늘'};
+  const name=document.getElementById('am-name').value.trim();if(!name){alert('이름 필수');return;}
+  const obj={name,role:document.getElementById('am-role').value,email:document.getElementById('am-email').value||'-',contact:document.getElementById('am-contact').value||'',status:document.getElementById('am-status').value,works:document.getElementById('am-works').value||'-',last:'오늘'};
   if(editingAuthorId){const a=authors.find(x=>x.id===editingAuthorId);if(a)Object.assign(a,obj);}
   else{authors.push({id:Date.now(),...obj});}
   save(KEYS.authors,authors);renderAuthors();closeAuthorModal();
