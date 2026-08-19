@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>novelED — 웹소설 편집자 대시보드</title>
+<title>업무 대시보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&family=Pretendard:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
@@ -3458,7 +3458,7 @@ function renderWeekly(){
         ${collabItems.length?`<div style="margin-top:8px;padding-top:7px;border-top:1px solid var(--b1)">
           <div style="font-size:10px;color:var(--t2);font-weight:600;margin-bottom:4px">👤 협업자 일정</div>
           <div style="display:flex;flex-direction:column;gap:4px">
-            ${collabItems.map(t=>`<div style="display:flex;align-items:center;gap:5px;font-size:11px">
+            ${collabItems.map(t=>`<div draggable="true" ondragstart="dragWeeklyTodo(event,${t.id})" style="display:flex;align-items:center;gap:5px;font-size:11px;cursor:grab">
               <input type="checkbox" ${t.done?'checked':''} onchange="toggleWeeklyTodo(${t.id})" style="width:12px;height:12px;flex-shrink:0">
               <span style="color:var(--t2);${t.done?'text-decoration:line-through':''}">${t.collabName}${t.collabWork?' · '+t.collabWork:''}</span>
               <span style="flex:1;${t.done?'text-decoration:line-through;color:var(--t2)':''}">${t.text}</span>
