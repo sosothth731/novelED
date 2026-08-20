@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>업무 대시보드</title>
+<title>novelED — 웹소설 편집자 대시보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&family=Pretendard:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
@@ -1335,6 +1335,9 @@ localStorage.setItem = function(k, v) {
       <input type="text" id="sm-promo" placeholder="프로모션" style="width:100%">
       <input type="text" id="sm-note" placeholder="비고" style="width:100%">
     </div>
+    <label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;margin-bottom:10px;color:var(--t2)">
+      <input type="checkbox" id="sm-provisional"> 임시 일정 (아직 원고 작업 전 — 캘린더에는 표시되지만 <b>작품 진행현황 보드에는 반영되지 않음</b>)
+    </label>
     <div style="display:flex;gap:8px">
       <button class="btn btn-sm btn-acc" onclick="saveSched()">저장</button>
       <button class="btn btn-sm btn-danger" id="sm-del-btn" style="display:none" onclick="deleteSched()">삭제</button>
@@ -2597,7 +2600,7 @@ function renderSchedule(){
         const urgent=dDay!==null&&dDay<=7&&dDay>=0;
         return`<tr>
           <td style="${urgent?'color:var(--acc);font-weight:500':'color:var(--t2)'}">${s.date?s.date.replace(/-/g,'.'):'-'}${dDay!==null&&dDay>=0?` <span class="badge badge-${dDay===0?'red':dDay<=3?'red':dDay<=7?'amber':'gray'}" style="font-size:10px">${dDay===0?'D-Day':'D-'+dDay}</span>`:''}</td>
-          <td style="font-weight:500;${s.subType?'color:var(--t2);font-style:italic':''}">${s.subType?'↳ ':''}${s.title}${s.subType?` <span class="spinoff-badge">${s.subType}</span>`:''}</td>
+          <td style="font-weight:500;${(s.subType||s.provisional)?'color:var(--t2);font-style:italic':''}">${(s.subType||s.provisional)?'↳ ':''}${s.title}${(s.subType||s.provisional)?` <span class="spinoff-badge">${s.subType||'임시'}</span>`:''}</td>
           <td style="color:var(--t2)">${s.author}</td>
           <td style="${platColor(s.platform)}">${s.platform}</td>
           <td><span class="badge ${stageBadge[s.stage]||'badge-gray'}">${s.stage}</span></td>
@@ -2716,13 +2719,13 @@ function renderSchedCal(){
     const isSun=dow===0;
     const isSat=dow===6;
     const numColor=isHoliday||isSun?'#e94560':isSat?'#5a8fa0':'';
-    const pubs=schedPub.filter(s=>s.date===dateStr).sort((a,b)=>(a.subType?1:0)-(b.subType?1:0));
+    const pubs=schedPub.filter(s=>s.date===dateStr).sort((a,b)=>((a.subType||a.provisional)?1:0)-((b.subType||b.provisional)?1:0));
     getPendingWorksByDate(dateStr).forEach(w=>monthPendings.push({...w,_day:d}));
     const holidayMark=isSubstitute?'<span class="sub-holiday-badge" title="대체휴일">대체</span>':isHoliday?'<span class="holiday-dot" title="공휴일">●</span>':'';
     div.innerHTML=`<div class="cal-day-num" style="${numColor?'color:'+numColor+';':''}">${d}${holidayMark}</div>`+pubs.map(s=>{
       const dDay=s.date?Math.round((new Date(s.date)-today)/864e5):null;
       const platCls=s.platform==='시리즈'?'sc-teal':s.platform==='리디'?'sc-blue':s.platform==='카카오'?'sc-amber':dDay===null?'sc-gray':dDay<=7?'sc-red':new Date(s.date).getMonth()===schedCalMonth?'sc-blue':'sc-teal';
-      return`<div class="sched-cal-event ${platCls}${s.subType?' spinoff':''}" title="${s.author} · ${s.note}${s.subType?` · ${s.subType}(본편: ${s.parentTitle})`:''}">${s.subType?'↳ ':''}${s.title} <span style="opacity:.7;font-size:9px">[${s.platform}]</span></div>`;
+      return`<div class="sched-cal-event ${platCls}${(s.subType||s.provisional)?' spinoff':''}" title="${s.author} · ${s.note}${s.subType?` · ${s.subType}(본편: ${s.parentTitle})`:s.provisional?' · 임시 일정(작품 진행현황 미반영)':''}">${(s.subType||s.provisional)?'↳ ':''}${s.title} <span style="opacity:.7;font-size:9px">[${s.platform}]</span></div>`;
     }).join('');
     body.appendChild(div);
   }
@@ -2763,7 +2766,7 @@ function renderSchedYear(){
   const platColor=p=>p==='시리즈'?'#15803d':p==='리디'?'#185fa5':p==='카카오'?'#d97706':'#6b7280';
   const months=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
   const todayYear=new Date().getFullYear(),todayMonth=new Date().getMonth();
-  const totalPubs=schedPub.filter(s=>{if(!s.date||s.subType)return false;return new Date(s.date).getFullYear()===schedYear;}).length;
+  const totalPubs=schedPub.filter(s=>{if(!s.date||s.subType||s.provisional)return false;return new Date(s.date).getFullYear()===schedYear;}).length;
   // 연간 요약 헤더
   body.innerHTML=`<div style="grid-column:1/-1;display:flex;align-items:center;gap:16px;padding:.5rem .75rem;background:var(--bg2);border-radius:var(--r);margin-bottom:4px">
     <span style="font-size:13px;font-weight:500;color:var(--t1)">${schedYear}년 총 출간 예정</span>
@@ -2777,8 +2780,8 @@ function renderSchedYear(){
   </div>`+months.map((mName,mi)=>{
     const pubs=schedPub
       .filter(s=>{if(!s.date)return false;const d=new Date(s.date);return d.getFullYear()===schedYear&&d.getMonth()===mi;})
-      .sort((a,b)=>a.date.localeCompare(b.date)||((a.subType?1:0)-(b.subType?1:0)));
-    const pubCount=pubs.filter(s=>!s.subType).length;
+      .sort((a,b)=>a.date.localeCompare(b.date)||(((a.subType||a.provisional)?1:0)-((b.subType||b.provisional)?1:0)));
+    const pubCount=pubs.filter(s=>!s.subType&&!s.provisional).length;
     const pendings=works
       .filter(w=>(w.stage==='심사고'||w.stage==='투고')&&w.pubdate)
       .filter(w=>{const d=new Date(w.pubdate);return d.getFullYear()===schedYear&&d.getMonth()===mi;})
@@ -2795,11 +2798,12 @@ function renderSchedYear(){
       </div>
       ${pubs.map(s=>{
         const day=new Date(s.date).getDate();
-        const pc=s.subType?'var(--t2)':platColor(s.platform);
+        const muted=s.subType||s.provisional;
+        const pc=muted?'var(--t2)':platColor(s.platform);
         return`<div style="font-size:11px;margin-bottom:4px;display:flex;align-items:flex-start;gap:5px;line-height:1.4">
           <span style="color:${pc};font-size:10px;font-weight:700;min-width:22px;flex-shrink:0;padding-top:1px">${day}일</span>
           <div style="flex:1;min-width:0">
-            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:${s.subType?'var(--t2)':'var(--t1)'};${s.subType?'font-style:italic':''}" title="${s.title}">${s.subType?'↳ ':''}${s.title}${s.subType?` <span class="spinoff-badge">${s.subType}</span>`:''}</div>
+            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:${muted?'var(--t2)':'var(--t1)'};${muted?'font-style:italic':''}" title="${s.title}">${muted?'↳ ':''}${s.title}${muted?` <span class="spinoff-badge">${s.subType||'임시'}</span>`:''}</div>
             <div style="font-size:10px;color:${pc};font-weight:500">${s.platform}${s.stage?` · ${s.stage}`:''}</div>
           </div>
         </div>`;
@@ -2844,6 +2848,7 @@ function openSchedModal(id){
   document.getElementById('sm-stage').value=s?s.stage:'심사고';
   document.getElementById('sm-promo').value=s?s.promo:'';
   document.getElementById('sm-note').value=s?s.note:'';
+  document.getElementById('sm-provisional').checked=s?!!s.provisional:false;
   document.getElementById('sm-del-btn').style.display=id?'inline-block':'none';
   window._smOrigTitle = s ? s.title : '';
   document.getElementById('sched-modal').style.display='flex';
@@ -2853,12 +2858,15 @@ function saveSched(){
   const title=document.getElementById('sm-title').value.trim();if(!title)return;
   const parentTitle=document.getElementById('sm-parent').value||'';
   const subType=parentTitle?(document.getElementById('sm-subtype').value||'외전'):'';
+  const provisional=document.getElementById('sm-provisional').checked;
   const obj={title,author:document.getElementById('sm-author').value,platform:document.getElementById('sm-platform').value,date:document.getElementById('sm-date').value,stage:document.getElementById('sm-stage').value,promo:document.getElementById('sm-promo').value||'-',note:document.getElementById('sm-note').value};
   obj.subType=subType;
   obj.parentTitle=parentTitle;
+  obj.provisional=provisional;
   // 심사고/투고는 아직 확정 전이므로 출간 일정표(확정 캘린더)에는 올리지 않고
-  // 아래 역방향 동기화를 통해 작품 쪽 pubdate/stage로만 반영 → 캘린더엔 '미확정' 스타일로 노출
-  const isUnconfirmedStage=obj.stage==='심사고'||obj.stage==='투고';
+  // 작품 쪽의 '미확정' 표시(getPendingWorksByDate)로만 노출한다.
+  // 단, '임시' 일정은 애초에 연결된 작품이 없어 그 경로를 못 타므로 단계와 무관하게 항상 캘린더에 올린다.
+  const isUnconfirmedStage=!provisional&&(obj.stage==='심사고'||obj.stage==='투고');
   if(isUnconfirmedStage){
     if(editingSchedId){schedPub=schedPub.filter(x=>x.id!==editingSchedId);} // 확정→미확정으로 내리는 경우, 기존 확정 항목 제거
   } else {
@@ -2866,8 +2874,15 @@ function saveSched(){
     else{schedPub.unshift({id:Date.now(),...obj});}
   }
   save(KEYS.schedPub,schedPub);
-  // 역방향: 같은 작품(수정 전 제목 기준 매칭)에 출간일·프로모션·단계·제목·외전/단행 여부 반영
   const origTitleS = window._smOrigTitle || obj.title;
+  if(provisional){
+    // 임시 일정: 캘린더에만 표시하고, 작품 진행현황·독점시트로는 절대 동기화하지 않음
+    window._smOrigTitle = '';
+    renderSchedule();
+    closeSchedModal();
+    return;
+  }
+  // 역방향: 같은 작품(수정 전 제목 기준 매칭)에 출간일·프로모션·단계·제목·외전/단행 여부 반영
   const linkedWork = works.find(w => w.title === origTitleS);
   if(linkedWork){
     linkedWork.title = obj.title; // 제목 변경분 반영
