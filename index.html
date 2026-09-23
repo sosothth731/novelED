@@ -2841,7 +2841,7 @@ function renderSchedYear(){
 
 // ══════ 러프 메모 (출간일정표 스크래치패드) ══════
 // 다른 어떤 데이터(작품 진행현황·독점시트 등)와도 절대 연동되지 않는 순수 메모장.
-// 스프레드시트처럼 셀 클릭 → 바로 타이핑, 월별 섹션, 드래그로 순서 변경만 지원.
+// 스프레드시트처럼 셀 클릭 → 바로 타이핑, 월 구분 배너, 행은 드래그로 자유롭게(월 간 이동 포함) 순서 변경.
 let rmYear=new Date().getFullYear();
 let draggingRmId=null;
 function changeRoughMemoYear(dir){rmYear+=dir;renderRoughMemo();}
@@ -2849,21 +2849,24 @@ function renderRoughMemo(){
   const titleEl=document.getElementById('rm-year-title');
   if(titleEl)titleEl.textContent=`${rmYear}년`;
   const wrap=document.getElementById('rm-months');if(!wrap)return;
-  wrap.innerHTML=Array.from({length:12},(_,i)=>i+1).map(m=>{
+  const body=Array.from({length:12},(_,i)=>i+1).map(m=>{
     const rows=roughMemo.filter(r=>r.year===rmYear&&r.month===m).sort((a,b)=>a.order-b.order);
-    return `<div class="card" style="margin-bottom:14px">
-      <div style="font-size:13px;font-weight:600;color:var(--t2);margin-bottom:10px">${m}월</div>
-      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:640px">
-        <thead><tr><th style="width:100px">일정</th><th>작품명</th><th style="width:100px">작가</th><th style="width:150px">프로모션</th><th>작업 현황</th><th style="width:24px"></th></tr></thead>
-        <tbody>${rows.map(rmRowHtml).join('')}</tbody>
-      </table></div>
-      <button class="btn btn-sm" style="margin-top:8px" onclick="addRoughMemoRow(${m})">+ 행 추가</button>
-    </div>`;
+    return `
+      <tr class="rm-month-band" ondragover="event.preventDefault()" ondrop="dropRoughMemoOnMonth(event,${m})">
+        <td colspan="6" style="text-align:center;font-weight:600;font-size:12px;background:var(--bg2);color:var(--t1);padding:7px">${m}월</td>
+      </tr>
+      <tr style="background:var(--bg1)"><th style="width:100px">일정</th><th>작품명</th><th style="width:100px">작가</th><th style="width:150px">프로모션</th><th>작업 현황</th><th style="width:24px"></th></tr>
+      ${rows.length?rows.map(rmRowHtml).join(''):`<tr class="rm-empty-row" ondragover="event.preventDefault()" ondrop="dropRoughMemoOnMonth(event,${m})"><td colspan="6" style="color:var(--t2);font-size:11px;padding:8px .75rem">아직 없음</td></tr>`}
+      <tr><td colspan="6" style="padding:5px .75rem"><button class="btn btn-sm" onclick="addRoughMemoRow(${m})">+ 행 추가</button></td></tr>
+    `;
   }).join('');
+  wrap.innerHTML=`<div class="card"><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:640px">
+    <tbody>${body}</tbody>
+  </table></div></div>`;
 }
 function rmRowHtml(r){
   return `<tr draggable="true" ondragstart="dragRoughMemoRow(event,${r.id})" ondragover="event.preventDefault()" ondrop="dropRoughMemoRow(event,${r.id})" style="cursor:grab">
-    <td>${rmCell(r.id,'date',r.date)}</td>
+    <td>${rmDateCell(r)}</td>
     <td>${rmCell(r.id,'title',r.title)}</td>
     <td>${rmCell(r.id,'author',r.author)}</td>
     <td>${rmCell(r.id,'promo',r.promo)}</td>
@@ -2874,6 +2877,30 @@ function rmRowHtml(r){
 function rmCell(id,field,val){
   const safe=(val||'').replace(/"/g,'&quot;');
   return `<input type="text" value="${safe}" oninput="updateRoughMemoCell(${id},'${field}',this.value)" style="width:100%;border:none;background:transparent;font-size:12px;padding:5px 3px;color:var(--t1);border-radius:4px" onfocus="this.style.background='var(--bg2)'" onblur="this.style.background='transparent'">`;
+}
+function rmDateCell(r){
+  const safe=(r.date||'').replace(/"/g,'&quot;');
+  return `<input type="text" value="${safe}" placeholder="예: 8/25" oninput="updateRoughMemoCell(${r.id},'date',this.value)" onfocus="this.style.background='var(--bg2)'" onblur="this.style.background='transparent';formatRoughMemoDate(${r.id},this)" style="width:100%;border:none;background:transparent;font-size:12px;padding:5px 3px;color:var(--t1);border-radius:4px">`;
+}
+// "8/25", "8-25", "8.25", "825", "0825", "8월25일" 등 러프하게 입력해도 'M월 D일' 형식으로 자동 정리
+function formatRoughMemoDate(id,el){
+  const raw=el.value.trim();
+  const r=roughMemo.find(x=>x.id===id);if(!r)return;
+  if(!raw){r.date='';save(KEYS.roughMemo,roughMemo);return;}
+  let m=null,d=null;
+  let mt=raw.match(/^(\d{1,2})\s*[\/\-\.]\s*(\d{1,2})$/);
+  if(mt){m=parseInt(mt[1]);d=parseInt(mt[2]);}
+  else if((mt=raw.match(/^(\d{1,2})\s*월\s*(\d{1,2})\s*일?$/))){m=parseInt(mt[1]);d=parseInt(mt[2]);}
+  else if(/^\d{3,4}$/.test(raw)){
+    m=parseInt(raw.slice(0,raw.length-2));d=parseInt(raw.slice(-2));
+  }
+  if(m&&d&&m>=1&&m<=12&&d>=1&&d<=31){
+    r.date=`${m}월 ${d}일`;
+    el.value=r.date;
+  } else {
+    r.date=raw; // 형식이 안 맞으면(예: '미정') 입력한 텍스트 그대로 자유롭게 저장
+  }
+  save(KEYS.roughMemo,roughMemo);
 }
 function addRoughMemoRow(month){
   const existing=roughMemo.filter(r=>r.year===rmYear&&r.month===month);
@@ -2893,12 +2920,32 @@ function deleteRoughMemoRow(id){
   renderRoughMemo();
 }
 function dragRoughMemoRow(e,id){draggingRmId=id;e.dataTransfer.effectAllowed='move';}
-function dropRoughMemoRow(e,targetId){
+// 월 배너나 빈 월 영역에 바로 드롭하는 경우: 그 월의 맨 끝으로 이동
+function dropRoughMemoOnMonth(e,month){
   e.preventDefault();
+  if(draggingRmId===null)return;
+  const from=roughMemo.find(r=>r.id===draggingRmId);if(!from)return;
+  const oldSiblings=roughMemo.filter(r=>r.year===from.year&&r.month===from.month&&r.id!==from.id).sort((a,b)=>a.order-b.order);
+  oldSiblings.forEach((r,i)=>{r.order=i;});
+  const targetSiblings=roughMemo.filter(r=>r.year===rmYear&&r.month===month&&r.id!==from.id);
+  const maxOrder=targetSiblings.length?Math.max(...targetSiblings.map(r=>r.order)):-1;
+  from.year=rmYear;from.month=month;from.order=maxOrder+1;
+  draggingRmId=null;
+  save(KEYS.roughMemo,roughMemo);
+  renderRoughMemo();
+}
+function dropRoughMemoRow(e,targetId){
+  e.preventDefault();e.stopPropagation();
   if(draggingRmId===null||draggingRmId===targetId)return;
   const from=roughMemo.find(r=>r.id===draggingRmId);
   const to=roughMemo.find(r=>r.id===targetId);
-  if(!from||!to||from.year!==to.year||from.month!==to.month)return; // 같은 월 안에서만 순서 변경
+  if(!from||!to)return;
+  // 다른 월로 드래그해온 경우: 원래 월의 순서를 앞당기고 대상 월로 편입
+  if(from.year!==to.year||from.month!==to.month){
+    const oldSiblings=roughMemo.filter(r=>r.year===from.year&&r.month===from.month&&r.id!==from.id).sort((a,b)=>a.order-b.order);
+    oldSiblings.forEach((r,i)=>{r.order=i;});
+    from.year=to.year;from.month=to.month;
+  }
   const siblings=roughMemo.filter(r=>r.year===to.year&&r.month===to.month).sort((a,b)=>a.order-b.order);
   const fromIdx=siblings.findIndex(r=>r.id===from.id);
   const toIdx=siblings.findIndex(r=>r.id===to.id);
