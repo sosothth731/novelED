@@ -815,15 +815,6 @@ localStorage.setItem = function(k, v) {
 };
 
 </script>
-  <meta name="theme-color" content="#241f18">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="novelED">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="stylesheet" href="vendor/mobile-drag-drop.css">
-<link rel="stylesheet" href="mobile.css">
 </head>
 <body data-theme="atelier">
 <div class="app">
@@ -1088,6 +1079,7 @@ localStorage.setItem = function(k, v) {
       <button id="wk-btn-2" onclick="setWeekCount(2)" style="font-size:11px;padding:3px 10px;border:none;background:var(--acc);color:#fff;cursor:pointer;font-family:inherit">2주</button>
       <button id="wk-btn-3" onclick="setWeekCount(3)" style="font-size:11px;padding:3px 10px;border:none;background:var(--bg2);color:var(--t2);cursor:pointer;font-family:inherit">3주</button>
       <button id="wk-btn-4" onclick="setWeekCount(4)" style="font-size:11px;padding:3px 10px;border:none;background:var(--bg2);color:var(--t2);cursor:pointer;font-family:inherit">4주</button>
+      <button id="wk-btn-5" onclick="setWeekCount(5)" style="font-size:11px;padding:3px 10px;border:none;background:var(--bg2);color:var(--t2);cursor:pointer;font-family:inherit">5주</button>
     </div>
     <button class="btn btn-sm btn-acc" style="margin-left:auto" onclick="openWeeklyModal(null)">+ 추가</button>
   </div>
@@ -2405,9 +2397,7 @@ function openWorkModal(id){
   document.getElementById('wm-id').value=id||'';
   // 본편 선택 목록: 본인 자신과, 이미 외전/단행인 작품은 부모 후보에서 제외 (중첩 방지)
   const parentSel=document.getElementById('wm-parent');
-  const candidates=works.filter(x=>x.id!==id&&!x.parentTitle);
-  parentSel.innerHTML='<option value="">— 외전/단행 아님 (본편 작품) —</option>'+
-    candidates.map(x=>`<option value="${x.title.replace(/"/g,'&quot;')}">${x.title}</option>`).join('');
+  parentSel.innerHTML=parentOptionsHtml(w?w.title:'');
   parentSel.value=w?(w.parentTitle||''):'';
   document.getElementById('wm-subtype').value=w&&w.subType?w.subType:'외전';
   onWmParentChange();
@@ -2966,6 +2956,22 @@ function dropRoughMemoRow(e,targetId){
   renderRoughMemo();
 }
 
+// 본편 선택 목록: 작품 진행현황·출간일정표·독점시트(임시 일정 포함)에 입력된 모든 작품명을 합쳐서 가나다순으로 반환.
+// (이미 외전/단행인 작품과 자기 자신은 제외)
+function getParentCandidates(excludeTitle){
+  const all=new Set(),subs=new Set();
+  const scan=(arr)=>arr.forEach(x=>{
+    const t=(x.title||'').trim();if(!t)return;
+    all.add(t);
+    if(x.parentTitle||x.subType)subs.add(t);
+  });
+  scan(works);scan(schedPub);scan(exclusives);
+  return [...all].filter(t=>!subs.has(t)&&t!==(excludeTitle||'').trim()).sort((a,b)=>a.localeCompare(b,'ko'));
+}
+function parentOptionsHtml(excludeTitle){
+  return '<option value="">— 외전/단행 아님 (본편 작품) —</option>'+
+    getParentCandidates(excludeTitle).map(t=>`<option value="${t.replace(/"/g,'&quot;')}">${t}</option>`).join('');
+}
 function onSmParentChange(){
   const hasParent=!!document.getElementById('sm-parent').value;
   document.getElementById('sm-subtype').disabled=!hasParent;
@@ -2976,9 +2982,7 @@ function openSchedModal(id){
   document.getElementById('sm-id').value=id||'';
   // 본편 선택 목록: 이미 외전/단행으로 등록된 작품은 부모 후보에서 제외 (중첩 방지), 자기 자신도 제외
   const parentSel=document.getElementById('sm-parent');
-  const candidates=works.filter(w=>!w.parentTitle&&w.title!==(s?s.title:''));
-  parentSel.innerHTML='<option value="">— 외전/단행 아님 (본편 작품) —</option>'+
-    candidates.map(w=>`<option value="${w.title.replace(/"/g,'&quot;')}">${w.title}</option>`).join('');
+  parentSel.innerHTML=parentOptionsHtml(s?s.title:'');
   // 현재 값: 이 일정 항목에 저장된 parentTitle 우선, 없으면 연결된 작품(works)의 parentTitle 참고
   const linkedW=s?works.find(w=>w.title===s.title):null;
   parentSel.value=s?(s.parentTitle||(linkedW?linkedW.parentTitle:'')||''):'';
@@ -3123,9 +3127,7 @@ function openExclModal(id){
   document.getElementById('em-id').value=id||'';
   // 본편 선택 목록: 이미 외전/단행으로 등록된 작품은 부모 후보에서 제외, 자기 자신도 제외
   const parentSel=document.getElementById('em-parent');
-  const candidates=works.filter(w=>!w.parentTitle&&w.title!==(ex?ex.title:''));
-  parentSel.innerHTML='<option value="">— 외전/단행 아님 (본편 작품) —</option>'+
-    candidates.map(w=>`<option value="${w.title.replace(/"/g,'&quot;')}">${w.title}</option>`).join('');
+  parentSel.innerHTML=parentOptionsHtml(ex?ex.title:'');
   parentSel.value=ex?(ex.parentTitle||''):'';
   document.getElementById('em-subtype').value=(ex&&ex.subType)||'외전';
   onEmParentChange();
@@ -3144,9 +3146,7 @@ function openExclModalPrefill(title,author,platform,date){
   document.getElementById('excl-modal-title').textContent='독점 작품 등록';
   document.getElementById('em-id').value='';
   const parentSel=document.getElementById('em-parent');
-  const candidates=works.filter(w=>!w.parentTitle&&w.title!==title);
-  parentSel.innerHTML='<option value="">— 외전/단행 아님 (본편 작품) —</option>'+
-    candidates.map(w=>`<option value="${w.title.replace(/"/g,'&quot;')}">${w.title}</option>`).join('');
+  parentSel.innerHTML=parentOptionsHtml(title);
   const linkedW=works.find(w=>w.title===title);
   parentSel.value=linkedW?(linkedW.parentTitle||''):'';
   document.getElementById('em-subtype').value=(linkedW&&linkedW.subType)||'외전';
@@ -3540,7 +3540,7 @@ let weekOffset=0,editingWeeklyId=null,weekCount=2;
 
 function setWeekCount(n){
   weekCount=n;
-  [1,2,3,4].forEach(i=>{
+  [1,2,3,4,5].forEach(i=>{
     const btn=document.getElementById('wk-btn-'+i);
     if(!btn)return;
     btn.style.background=i===n?'var(--acc)':'var(--bg2)';
@@ -4053,8 +4053,5 @@ function hideNav(){
   }, 120);
 }
 </script>
-  <script src="vendor/mobile-drag-drop.min.js"></script>
-<script src="vendor/scroll-behaviour.min.js"></script>
-<script src="mobile.js"></script>
 </body>
 </html>
