@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>novelED — 업무 대시보드</title>
+<title>novelED — 웹소설 편집자 대시보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;600;700&family=Pretendard:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
@@ -125,7 +125,7 @@ input[type=date]{cursor:pointer}
 .cal-event.work-secondary{background:#fce8eb;color:#b01830}
 .cal-event.work-etc{background:#f1efe8;color:#5f5e5a}
 .sched-cal-event{font-size:10px;padding:2px 6px;border-radius:4px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sched-cal-event.spinoff{background:var(--bg3)!important;color:var(--t2)!important;border:none;font-style:italic}
+.sched-cal-event.spinoff{opacity:.6}
 .sched-cal-event.sc-red{background:#fce8eb;color:#b01830}
 .sched-cal-event.sc-blue{background:#dbeafe;color:#1d4ed8}
 .sched-cal-event.sc-teal{background:#dcfce7;color:#15803d}
@@ -404,11 +404,11 @@ body[data-theme="marker"] .quick-jot{background:var(--acc)!important;color:#fff!
 .kind-seg button:last-child{border-right:none}
 .kind-seg button.on{background:var(--acc);color:#fff;font-weight:600}
 .kind-hint{font-size:11px;color:var(--t2);margin:5px 1px 0;line-height:1.5}
-.kind-badge{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px;margin-right:3px;vertical-align:middle;line-height:1.5;white-space:nowrap}
-.kb-main{background:#334155;color:#fff}
-.kb-side{background:#ede9fe;color:#6d28d9}
-.kb-vol{background:#ffe4e6;color:#be123c}
-.kb-all{background:#e2e8f0;color:#475569;border:0.5px solid #94a3b8}
+.kind-badge{display:inline-block;font-size:9px;font-weight:500;padding:1px 6px;border-radius:99px;margin-right:3px;vertical-align:middle;line-height:1.5;white-space:nowrap}
+.kb-main{background:#eceff3;color:#6b7686}
+.kb-side{background:#f0ebf6;color:#8e7fa6}
+.kb-vol{background:#f5ece8;color:#a58779}
+.kb-all{background:#efefed;color:#85857f}
 .ykind-chip{font-size:11px;padding:3px 10px;border-radius:99px;border:0.5px solid var(--b2);background:var(--bg1);color:var(--t2);cursor:pointer}
 .ykind-chip.on{background:var(--acc);color:#fff;border-color:var(--acc)}
 .ycard-item{cursor:pointer;border-radius:4px}
@@ -2344,7 +2344,7 @@ function renderWorks(){
           const subLabel=w.subType||'외전';
           return`<div class="kcard" style="border-left:3px solid ${platColor};${isSpin?'margin-left:10px':''}" draggable="true" ondragstart="dragWork(event,${w.id})">
           <div style="font-weight:500;font-size:12px;${isSpin?'color:var(--t2);font-style:italic':''}">${isSpin?'↳ ':''}${w.title}${isSpin?` <span class="kind-badge kb-${kindCls(subLabel)}" style="margin-left:4px">${subLabel}</span>`:''}</div>
-          <div style="color:var(--t2);font-size:11px;margin-top:2px">${w.author}${kId==='works-kanban'?' · '+w.gLabel:''}${w.parentTitle?` · 본편: ${w.parentTitle}`:''}</div>
+          <div style="color:var(--t2);font-size:11px;margin-top:2px">${w.author}${kId==='works-kanban'?' · '+w.gLabel:''}</div>
           ${promoText&&kId==='works-kanban'?`<div style="margin-top:4px"><span style="font-size:10px;padding:1px 7px;border-radius:99px;background:${platColor}22;color:${platColor};border:0.5px solid ${platColor}55;display:inline-block;font-weight:500">프로모션 · ${promoText}</span></div>`:''}
         </div>`;
         }).join('')}
@@ -2402,7 +2402,7 @@ function openWorkModal(id){
   document.getElementById('wm-author').value=w?w.author:'';
   document.getElementById('wm-genre').value=w?w.genre:'g-romance';
   document.getElementById('wm-stage').value=w?w.stage:'심사고';
-  document.getElementById('wm-platform').value=w?w.platform:'리디';
+  setPlatVal('wm',w?w.platform:'리디');
 // 출간일정표와 연동: 프로모션 값 우선순위 = 작품 자체 > 일정표
 const linkedSched = schedPub.find(s => s.title === (w ? w.title : ''));
 document.getElementById('wm-deadline').value = w ? (w.deadline || (linkedSched ? linkedSched.promo : '') || '') : '';
@@ -2592,6 +2592,23 @@ function kindKey(x){return (x&&x.subType)?x.subType:'본편';}
 function kindCls(k){return {'본편':'main','외전':'side','단행':'vol','전사':'all'}[k]||'main';}
 function kindBadge(x){const k=typeof x==='string'?x:kindKey(x);return `<span class="kind-badge kb-${kindCls(k)}">${k}</span>`;}
 const KIND_HINTS={'':'출간 종수에 집계되는 작품이에요.','외전':'출간 종수에는 집계되지 않아요. 본편을 연결해 두면 정리하기 좋아요.','단행':'출간 종수에는 집계되지 않아요. 본편을 연결해 두면 정리하기 좋아요.','전사':'출간 종수에는 집계되지 않아요.'};
+const PLAT_MAIN=['시리즈','카카오','리디'];
+const PLAT_SUB=['시리즈','카카오','리디','봄툰','미스터블루','알라딘','원스토리','교보문고'];
+// 기존 데이터의 플랫폼이 목록에 없어도(예: 북큐브) 값이 사라지지 않게 옵션을 보충
+function setPlatVal(p,val){
+  const pl=document.getElementById(p+'-platform');if(!pl)return;
+  if(val&&![...pl.options].some(o=>o.value===val)){const o=document.createElement('option');o.value=o.textContent=val;o.dataset.legacy='1';pl.dataset.legacy=val;pl.appendChild(o);}
+  pl.value=val||pl.options[0].value;
+}
+function rebuildPlat(p,k){
+  const pl=document.getElementById(p+'-platform');if(!pl||k==='전사')return;
+  const list=k===''?PLAT_MAIN:PLAT_SUB,cur=pl.value;
+  pl.innerHTML=list.map(x=>`<option>${x}</option>`).join('');
+  const legacy=pl.dataset.legacy;
+  if(cur&&!list.includes(cur)&&legacy===cur){const o=document.createElement('option');o.value=o.textContent=cur;o.dataset.legacy='1';pl.appendChild(o);}
+  pl.dataset.legacy='';
+  pl.value=list.includes(cur)||(legacy===cur&&cur)?cur:list[list.length>=3?2:0]; // 기본값: 리디
+}
 function setKind(p,k){
   document.getElementById(p+'-subtype').value=k||'';
   if(!k){const ps=document.getElementById(p+'-parent');if(ps)ps.value='';}
@@ -2603,10 +2620,11 @@ function syncKind(p){
   const ps=document.getElementById(p+'-parent');if(ps)ps.style.display=k?'block':'none';
   const h=document.getElementById(p+'-kindhint');if(h)h.textContent=KIND_HINTS[k]||'';
   // 전사 = 전 플랫폼 동시 유통 → 플랫폼 선택 칸 없음
+  rebuildPlat(p,k);
   const pl=document.getElementById(p+'-platform');
   if(pl){
     pl.style.display=k==='전사'?'none':'';
-    if(k!=='전사'&&!pl.value)pl.selectedIndex=0;
+    
     const g=pl.parentElement;if(g&&g.style.display==='grid'||g&&g.style.gridTemplateColumns){const n=[...g.children].filter(c=>c.style.display!=='none').length;g.style.gridTemplateColumns='repeat('+n+',1fr)';}
   }
 }
@@ -2615,7 +2633,7 @@ function onParentPick(p){
   const t=document.getElementById(p+'-parent').value;syncKind(p);if(!t)return;
   const src=[...schedPub,...works,...exclusives].find(x=>x.title===t);if(!src)return;
   const a=document.getElementById(p+'-author');if(a&&!a.value&&src.author)a.value=src.author;
-  const pl=document.getElementById(p+'-platform');if(pl&&src.platform&&src.platform!=='전사'&&(document.getElementById(p+'-subtype').value!=='전사')&&!window['_'+p+'PlatTouched']){try{pl.value=src.platform;}catch(e){}}
+  const pl=document.getElementById(p+'-platform');if(pl&&src.platform&&src.platform!=='전사'&&(document.getElementById(p+'-subtype').value!=='전사')&&!window['_'+p+'PlatTouched']){try{setPlatVal(p,src.platform);}catch(e){}}
 }
 // ══════ SCHEDULE — 출간 예정일 첫 열, 플랫폼 캘린더 노출 ══════
 let schedCalYear=new Date().getFullYear(),schedCalMonth=new Date().getMonth(),editingSchedId=null;
@@ -2641,11 +2659,11 @@ function renderSchedule(){
         const urgent=dDay!==null&&dDay<=7&&dDay>=0;
         return`<tr>
           <td style="${urgent?'color:var(--acc);font-weight:500':'color:var(--t2)'}">${s.date?s.date.replace(/-/g,'.'):'-'}${dDay!==null&&dDay>=0?` <span class="badge badge-${dDay===0?'red':dDay<=3?'red':dDay<=7?'amber':'gray'}" style="font-size:10px">${dDay===0?'D-Day':'D-'+dDay}</span>`:''}</td>
-          <td style="font-weight:500;${(s.subType||s.provisional)?'color:var(--t2)':''}">${s.title}${s.provisional?' <span class="spinoff-badge">임시</span>':''}${s.parentTitle?`<div style="font-size:10px;color:var(--t2);font-weight:400">본편: ${s.parentTitle}</div>`:''}</td>
+          <td style="font-weight:500;${(s.subType||s.provisional)?'color:var(--t2)':''}">${s.title}${s.provisional?' <span class="spinoff-badge">임시</span>':''}</td>
           <td>${kindBadge(s)}</td>
           <td style="color:var(--t2)">${s.author}</td>
-          <td style="${platColor(s.platform)}">${s.platform}</td>
-          <td><span class="badge ${stageBadge[s.stage]||'badge-gray'}">${s.stage}</span></td>
+          <td style="${s.subType==='전사'?'color:var(--t2)':platColor(s.platform)}">${s.subType==='전사'?'-':s.platform}</td>
+          <td>${s.subType==='전사'?'<span style="color:var(--t2)">-</span>':`<span class="badge ${stageBadge[s.stage]||'badge-gray'}">${s.stage}</span>`}</td>
           <td style="font-size:12px;color:var(--t2)">${s.promo||'-'}</td>
           <td style="font-size:12px;color:var(--t2)">${s.note}</td>
           <td><div class="row-actions"><button class="edit-btn" onclick="openSchedModal(${s.id})">수정</button></div></td>
@@ -2766,8 +2784,8 @@ function renderSchedCal(){
     const holidayMark=isSubstitute?'<span class="sub-holiday-badge" title="대체휴일">대체</span>':isHoliday?'<span class="holiday-dot" title="공휴일">●</span>':'';
     div.innerHTML=`<div class="cal-day-num" style="${numColor?'color:'+numColor+';':''}">${d}${holidayMark}</div>`+pubs.map(s=>{
       const dDay=s.date?Math.round((new Date(s.date)-today)/864e5):null;
-      const platCls=s.platform==='전사'?'sc-gray':s.platform==='시리즈'?'sc-teal':s.platform==='리디'?'sc-blue':s.platform==='카카오'?'sc-amber':dDay===null?'sc-gray':dDay<=7?'sc-red':new Date(s.date).getMonth()===schedCalMonth?'sc-blue':'sc-teal';
-      return`<div class="sched-cal-event ${platCls}${(s.subType||s.provisional)?' spinoff':''}" title="${s.author} · ${s.note}${s.subType?` · ${s.subType}(본편: ${s.parentTitle})`:s.provisional?' · 임시 일정(작품 진행현황 미반영)':''}">${(s.subType||s.provisional)?'↳ ':''}${s.title} <span style="opacity:.75;font-size:9px">[${kindKey(s)}·${s.platform}]</span></div>`;
+      const platCls=(s.platform==='전사'||s.subType==='전사')?'sc-gray':s.platform==='시리즈'?'sc-teal':s.platform==='리디'?'sc-blue':s.platform==='카카오'?'sc-amber':dDay===null?'sc-gray':dDay<=7?'sc-red':new Date(s.date).getMonth()===schedCalMonth?'sc-blue':'sc-teal';
+      return`<div class="sched-cal-event ${platCls}${(s.subType||s.provisional)?' spinoff':''}" title="${s.author} · ${s.note}${s.subType?` · ${s.subType}(본편: ${s.parentTitle})`:s.provisional?' · 임시 일정(작품 진행현황 미반영)':''}">${s.title} <span style="opacity:.75;font-size:9px">[${s.subType==='전사'?'전사':kindKey(s)+'·'+s.platform}]</span></div>`;
     }).join('');
     body.appendChild(div);
   }
@@ -2850,12 +2868,13 @@ function renderSchedYear(){
       ${pubs.map(s=>{
         const day=new Date(s.date).getDate();
         const sub=!!s.subType||!!s.provisional;
-        const pc=platColor(s.platform);
+        const isAll=s.subType==='전사';
+        const pc=isAll?'#6b7280':platColor(s.platform);
         return`<div class="ycard-item" onclick="openSchedModal(${s.id})" title="클릭해서 수정" style="font-size:11px;margin-bottom:5px;padding:2px 4px;display:flex;align-items:flex-start;gap:6px;line-height:1.4">
           <span style="color:${pc};font-size:11px;font-weight:700;min-width:26px;flex-shrink:0;padding-top:1px">${day}일</span>
           <div style="flex:1;min-width:0">
             <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:${sub?'var(--t2)':'var(--t1)'}" title="${s.title}">${kindBadge(s)}${s.provisional?'<span class="kind-badge" style="background:var(--bg3);color:var(--t2)">임시</span>':''}${s.title}</div>
-            <div style="font-size:10px;color:${pc};font-weight:500;margin-top:1px">${s.platform}${s.stage?` · ${s.stage}`:''}</div>
+            ${isAll?'':`<div style="font-size:10px;color:${pc};font-weight:500;margin-top:1px">${s.platform}${s.stage?` · ${s.stage}`:''}</div>`}
           </div>
         </div>`;
       }).join('')}
@@ -3021,7 +3040,7 @@ function openSchedModal(id,presetDate){
   syncKind('sm');
   document.getElementById('sm-title').value=s?s.title:'';
   document.getElementById('sm-author').value=s?s.author:'';
-  document.getElementById('sm-platform').value=s?s.platform:'리디';
+  setPlatVal('sm',s?s.platform:'리디');
   document.getElementById('sm-date').value=s?s.date:(presetDate||'');
   document.getElementById('sm-stage').value=s?s.stage:'심사고';
   document.getElementById('sm-promo').value=s?s.promo:'';
@@ -3162,7 +3181,7 @@ function openExclModal(id){
   document.getElementById('em-subtype').value=(ex&&ex.subType)||'';
   onEmParentChange();
   ['title','author','launch','e1s','e1e','e2s','e2e','cost','note'].forEach(k=>{const el=document.getElementById('em-'+k);if(el)el.value=ex?ex[k]||'':'';}); const p2el=document.getElementById('em-plat2');if(p2el)p2el.value=ex?ex.plat2||'':'';;
-  if(ex)document.getElementById('em-platform').value=ex.platform;
+  if(ex)setPlatVal('em',ex.platform);
   document.getElementById('em-del-btn').style.display=id?'inline-block':'none';
   const launchEl=document.getElementById('em-launch');
   const e1sEl=document.getElementById('em-e1s');
@@ -3183,7 +3202,7 @@ function openExclModalPrefill(title,author,platform,date){
   onEmParentChange();
   document.getElementById('em-title').value=title;
   document.getElementById('em-author').value=author;
-  document.getElementById('em-platform').value=platform;
+  setPlatVal('em',platform);
   document.getElementById('em-launch').value=date;
   document.getElementById('em-e1s').value=date;
   ['e1e','e2s','e2e','cost','note'].forEach(k=>{const el=document.getElementById('em-'+k);if(el)el.value='';});
