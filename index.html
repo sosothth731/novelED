@@ -24,6 +24,10 @@ body[data-theme="custom"] .nav-section{color:rgba(var(--ntx),.35)!important}
 body[data-theme="custom"] .theme-dot.active{border-color:rgba(var(--ntx),.85)!important}
 body[data-theme="custom"] .page-title{color:var(--pt)!important}
 .cm-lbl{font-size:11px;color:var(--t2);margin:0 0 4px 2px}
+.nav-fold{cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none}
+.nav-fold:hover{color:rgba(255,255,255,.6)}
+.nav-chev{font-size:10px;transition:transform .18s}
+.nav-fold.open .nav-chev{transform:rotate(90deg)}
 :root{--serif:'Noto Serif KR',serif;--mono:'IBM Plex Mono',monospace}
 body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:var(--t1);background:var(--bg3);letter-spacing:-.1px}
 .page-title{font-family:var(--serif)!important;letter-spacing:0!important}
@@ -694,7 +698,8 @@ window.__nedSync = function() {
   <div class="nav-item" onclick="showPage('exclusive',this)">
     <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>독점 정보 시트
   </div>
-  <div class="nav-section">관리</div>
+  <div class="nav-section nav-fold" id="nav-manage-head" onclick="toggleNavGroup('manage')">관리 <span class="nav-chev">▸</span></div>
+  <div id="nav-manage" style="display:none">
   <div class="nav-item" onclick="showPage('calendar',this)">
     <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>월간 캘린더
   </div>
@@ -710,8 +715,10 @@ window.__nedSync = function() {
   <div class="nav-item" onclick="showPage('memo',this)">
     <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5z"/></svg>플랫폼 메모
   </div>
+  </div>
 
-  <div class="nav-section">작업</div>
+  <div class="nav-section nav-fold" id="nav-tools-head" onclick="toggleNavTools()">작업 <span class="nav-chev">▸</span></div>
+  <div id="nav-tools" style="display:none">
   <div class="nav-item" onclick="showPage('tool-mail',this)">
     <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>프로모션 메일 생성
   </div>
@@ -723,6 +730,7 @@ window.__nedSync = function() {
   </div>
   <div class="nav-item" onclick="showPage('tool-merge',this)">
     <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M8 3h7l4 4v9"/><path d="M15 3v4h4"/><path d="M5 7h3v14h10"/><path d="M11 12h5M11 16h5"/></svg>원고 병합
+  </div>
   </div>
 
   <!-- ═══ Firebase Auth UI ═══ -->
@@ -1285,17 +1293,12 @@ window.__nedSync = function() {
 <!-- AUTHORS -->
 <div id="page-authors" class="page">
   <div class="page-title">협업자 관리</div>
-  <div class="grid4" style="margin-bottom:14px">
-    <div class="card-sm"><div class="stat-val" id="auth-stat-total">0</div><div class="stat-lbl">전체 협업자</div></div>
-    <div class="card-sm"><div class="stat-val" id="auth-stat-w">0</div><div class="stat-lbl">작가</div></div>
-    <div class="card-sm"><div class="stat-val" id="auth-stat-d">0</div><div class="stat-lbl">디자인</div></div>
-    <div class="card-sm"><div class="stat-val" id="auth-stat-p">0</div><div class="stat-lbl">교정</div></div>
-  </div>
-  <div class="card">
+    <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px">
       <div class="sec-label" style="margin:0">협업자 목록</div>
       <div style="display:flex;gap:6px"><button class="btn btn-sm" onclick="openAuthorBulk()">+ 여러 명 한꺼번에 등록</button><button class="btn btn-sm btn-acc" onclick="openAuthorModal(null)">+ 등록</button></div>
     </div>
+    <input type="text" id="author-search" placeholder="검색 (이름 · 필명 · 이메일 · 연락처)" oninput="renderAuthors()" style="width:100%;margin-bottom:10px">
     <div style="display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap" id="author-role-filters">
       <div class="chip sel" onclick="filterAuthorRole('전체',this)">전체</div>
       <div class="chip" onclick="filterAuthorRole('작가',this)">작가</div>
@@ -3126,15 +3129,13 @@ function filterAuthorRole(role,el){
 }
 function renderAuthors(){
   const tb=document.getElementById('author-tbody');
-  const at=document.getElementById('auth-stat-total'),sw=document.getElementById('auth-stat-w'),sd=document.getElementById('auth-stat-d'),sp=document.getElementById('auth-stat-p');
-  if(at)at.textContent=authors.length;
-  const rc=r=>authors.filter(a=>(a.role||'작가')===r).length;
-  if(sw)sw.textContent=rc('작가');if(sd)sd.textContent=rc('디자인');if(sp)sp.textContent=rc('교정');
   // 역할 필드가 없던 기존(구버전) 데이터는 '작가'로 간주 (별도 마이그레이션 없이 항상 안전하게 처리)
   const withRole=authors.map(a=>({...a,_role:a.role||'작가'}));
-  const filtered=(authorRoleFilter==='전체'?withRole:withRole.filter(a=>a._role===authorRoleFilter)).sort((x,y)=>String(x.name).localeCompare(String(y.name),'ko'));
+  const q=((document.getElementById('author-search')||{}).value||'').trim().toLowerCase();
+  const matchQ=a=>!q||[a.name,a.alias,a.email,a.contact].some(v=>String(v||'').toLowerCase().includes(q));
+  const filtered=(authorRoleFilter==='전체'?withRole:withRole.filter(a=>a._role===authorRoleFilter)).filter(matchQ).sort((x,y)=>String(x.name).localeCompare(String(y.name),'ko'));
   if(!authors.length){tb.innerHTML=`<tr><td colspan="4"><div class="empty-state">등록된 협업자 없음</div></td></tr>`;return;}
-  if(!filtered.length){tb.innerHTML=`<tr><td colspan="4"><div class="empty-state">해당 역할의 협업자 없음</div></td></tr>`;return;}
+  if(!filtered.length){tb.innerHTML=`<tr><td colspan="4"><div class="empty-state">조건에 맞는 협업자 없음</div></td></tr>`;return;}
   tb.innerHTML=filtered.map(a=>`<tr>
     <td><div style="display:flex;align-items:center;gap:8px"><div class="avatar">${a.name.slice(0,2)}</div><div>${a.name}${a.alias?'<div style="font-size:11px;color:var(--t2)">= '+String(a.alias).replace(/</g,'&lt;')+'</div>':''}</div></div></td>
     <td><span class="badge ${roleBadge[a._role]||'badge-gray'}">${a._role}</span></td>
@@ -4037,6 +4038,16 @@ setTimeout(()=>{
 
 // ══════ NAV HOVER SHOW/HIDE ══════
 let _navHideTimer = null;
+function toggleNavGroup(g,force){
+  const box=document.getElementById('nav-'+g),head=document.getElementById('nav-'+g+'-head');if(!box)return;
+  const open=typeof force==='boolean'?force:box.style.display==='none';
+  box.style.display=open?'block':'none';head.classList.toggle('open',open);
+}
+function toggleNavTools(force){
+  const box=document.getElementById('nav-tools'),head=document.getElementById('nav-tools-head');if(!box)return;
+  const open=typeof force==='boolean'?force:box.style.display==='none';
+  box.style.display=open?'block':'none';head.classList.toggle('open',open);
+}
 function showNav(){
   clearTimeout(_navHideTimer);
   const nav = document.getElementById('main-nav');
@@ -4068,6 +4079,8 @@ window.TOOL_SRC={"mail":"\u003c!doctype html>\n\u003chtml lang=\"ko\">\n\u003che
   const _show=window.showPage;
   window.showPage=function(id,el){
     _show(id,el);
+    if(id.indexOf('tool-')===0)toggleNavTools(true);
+    if(['calendar','promo','authors','contacts','memo'].indexOf(id)>=0)toggleNavGroup('manage',true);
     if(id.indexOf('tool-')===0){const k=id.slice(5);open(k);if(frames[k]){pushBg(frames[k]);try{frames[k].contentWindow.dispatchEvent(new Event('focus'));}catch(e){}}}
   };
   window.__pushBgAll=function(){Object.keys(frames).forEach(k=>pushBg(frames[k]));};
