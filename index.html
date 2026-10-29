@@ -2225,7 +2225,7 @@ function renderWorks(){
           const promoText=wp?wp.title:'';
           const isSpin=!!(w.parentTitle||w.subType);
           const subLabel=w.subType||'외전';
-          return`<div class="kcard" style="border-left:3px solid ${platColor};${isSpin?'margin-left:10px':''}" draggable="true" ondragstart="dragWork(event,${w.id})">
+          return`<div class="kcard" style="border-left:3px solid ${platColor};${isSpin?'margin-left:10px':''}" draggable="true" ondragstart="dragWork(event,${w.id})" onclick="openWorkModal(${w.id})" title="클릭해서 수정">
           <div style="font-weight:500;font-size:12px;${isSpin?'color:var(--t2);font-style:italic':''}">${isSpin?'↳ ':''}${w.title}${isSpin?` <span class="kind-badge kb-${kindCls(subLabel)}" style="margin-left:4px">${subLabel}</span>`:''}</div>
           <div style="color:var(--t2);font-size:11px;margin-top:2px">${w.author}${kId==='works-kanban'?' · '+w.gLabel:''}</div>
           ${promoText&&kId==='works-kanban'?`<div style="margin-top:4px"><span style="font-size:10px;padding:1px 7px;border-radius:99px;background:${platColor}22;color:${platColor};border:0.5px solid ${platColor}55;display:inline-block;font-weight:500">프로모션 · ${promoText}</span></div>`:''}
