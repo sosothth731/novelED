@@ -3127,6 +3127,7 @@ function filterAuthorRole(role,el){
   el.classList.add('sel');
   renderAuthors();
 }
+function escH(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function renderAuthors(){
   const tb=document.getElementById('author-tbody');
   // 역할 필드가 없던 기존(구버전) 데이터는 '작가'로 간주 (별도 마이그레이션 없이 항상 안전하게 처리)
@@ -3137,9 +3138,9 @@ function renderAuthors(){
   if(!authors.length){tb.innerHTML=`<tr><td colspan="4"><div class="empty-state">등록된 협업자 없음</div></td></tr>`;return;}
   if(!filtered.length){tb.innerHTML=`<tr><td colspan="4"><div class="empty-state">조건에 맞는 협업자 없음</div></td></tr>`;return;}
   tb.innerHTML=filtered.map(a=>`<tr>
-    <td><div style="display:flex;align-items:center;gap:8px"><div class="avatar">${a.name.slice(0,2)}</div><div>${a.name}${a.alias?'<div style="font-size:11px;color:var(--t2)">= '+String(a.alias).replace(/</g,'&lt;')+'</div>':''}</div></div></td>
+    <td><div style="display:flex;align-items:center;gap:8px"><div class="avatar">${escH(String(a.name).slice(0,2))}</div><div>${escH(a.name)}${a.alias?'<div style="font-size:11px;color:var(--t2)">= '+escH(a.alias)+'</div>':''}</div></div></td>
     <td><span class="badge ${roleBadge[a._role]||'badge-gray'}">${a._role}</span></td>
-    <td style="font-size:12px;color:var(--t2)">${a.email}</td>
+    <td style="font-size:12px;color:var(--t2)">${escH(a.email)}</td>
     <td><div class="row-actions"><button class="edit-btn" onclick="openAuthorModal(${a.id})">수정</button></div></td>
   </tr>`).join('');
 }
