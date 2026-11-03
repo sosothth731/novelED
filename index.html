@@ -1594,7 +1594,7 @@ function stopTodoTimer(forceId){
     if(log){
       if(log.querySelector('.empty-state'))log.innerHTML='';
       const d=document.createElement('div');d.className='todo-row';
-      d.innerHTML=`<span class="badge ${catColors[t.cat]}">${catLabels[t.cat]}</span><span style="flex:1;padding-left:8px">${t.text}</span><span style="color:var(--t2)">${fmtHM(t.timerSec)}</span>`;
+      d.innerHTML=`<span class="badge ${catColors[t.cat]}">${catLabels[t.cat]}</span><span style="flex:1;padding-left:8px">${escH(t.text)}</span><span style="color:var(--t2)">${fmtHM(t.timerSec)}</span>`;
       log.insertBefore(d,log.firstChild);
     }
     // ── 오늘 일정표에 자동 블록 생성 ──
@@ -1687,7 +1687,7 @@ function renderWeekChart(){
 // ══════ MEMOS — 2열 그리드, 📌 자동 추가 (대시보드 + 위클리 양쪽에 표시) ══════
 function renderMemos(){
   const html=!memos.length?'<div style="font-size:12px;color:var(--t2);grid-column:1/-1">메모 없음</div>':memos.map(m=>`<div class="memo-item">
-    <span style="flex:1;font-size:12px">📌 ${m.text}</span>
+    <span style="flex:1;font-size:12px">📌 ${escH(m.text)}</span>
     <button class="memo-del" onclick="deleteMemo(${m.id})" title="삭제">✕</button>
   </div>`).join('');
   ['memo-grid','memo-grid-2'].forEach(id=>{const g=document.getElementById(id);if(g)g.innerHTML=html;});
@@ -1765,8 +1765,8 @@ function onMemoSearch(){
     }
   });
   if(!hits.length){resBox.innerHTML=`<div style="font-size:12px;color:var(--t2);padding:.5rem 0">"${q}" 검색 결과 없음</div>`;return;}
-  resBox.innerHTML=hits.map(h=>`<div style="background:var(--bg1);border-radius:8px;padding:.625rem .875rem;margin-bottom:6px;cursor:pointer" onclick="jumpToMemoResult('${h.name}',${JSON.stringify(q)})">
-    <span style="font-size:12px;font-weight:500;color:var(--acc)">${h.name}</span>
+  resBox.innerHTML=hits.map(h=>`<div style="background:var(--bg1);border-radius:8px;padding:.625rem .875rem;margin-bottom:6px;cursor:pointer" onclick="jumpToMemoResult('${escJ(h.name)}',${JSON.stringify(q)})">
+    <span style="font-size:12px;font-weight:500;color:var(--acc)">${escH(h.name)}</span>
     <span style="font-size:12px;color:var(--t2);margin-left:8px">${h.snippet}</span>
   </div>`).join('');
 }
@@ -1848,7 +1848,7 @@ function renderDeadlineDash(){
     const ddCls=overdue?'badge-red':t.dday===0?'badge-red':t.dday<=3?'badge-red':t.dday<=7?'badge-amber':'badge-gray';
     return`<div class="todo-row">
     <div class="notif-dot" style="background:${overdue||t.dday<=3?'var(--acc)':t.dday<=7?'var(--a2)':'var(--b2)'}"></div>
-    <div style="flex:1"><span style="font-weight:500;${overdue?'color:#b01830':''}">${overdue?'🚨 ':''}${t.text}</span><div style="font-size:11px;color:var(--t2);margin-top:1px"><span class="badge ${catColors[t.cat]}" style="font-size:10px;padding:1px 6px">${catLabels[t.cat]}</span></div></div>
+    <div style="flex:1"><span style="font-weight:500;${overdue?'color:#b01830':''}">${overdue?'🚨 ':''}${escH(t.text)}</span><div style="font-size:11px;color:var(--t2);margin-top:1px"><span class="badge ${catColors[t.cat]}" style="font-size:10px;padding:1px 6px">${catLabels[t.cat]}</span></div></div>
     <span class="badge ${ddCls}">${ddLabel}</span>
   </div>`;
   }).join('');
@@ -1875,7 +1875,7 @@ function makeTodoRow(t,orderNum){
     ${numBadge}
     <input type="checkbox" ${t.done?'checked':''} onchange="toggleTodo(${t.id})">
     <span class="badge ${catColors[t.cat]}">${catLabels[t.cat]}</span>
-    <span class="todo-text" style="flex:1;${isOverdue?'color:#b01830;font-weight:500':''}">${isOverdue?'🚨 ':''}${t.text}</span>
+    <span class="todo-text" style="flex:1;${isOverdue?'color:#b01830;font-weight:500':''}">${isOverdue?'🚨 ':''}${escH(t.text)}</span>
     ${t.priority==='high'?`<span style="font-size:10px;font-weight:500;color:var(--acc)">HIGH</span>`:''}
     <span style="font-size:11px;color:var(--t2);font-variant-numeric:tabular-nums;min-width:42px;text-align:right">${elapsed>0?fmtHM(elapsed):''}</span>
     <button style="font-size:10px;padding:2px 7px;border-radius:99px;border:0.5px solid var(--b2);background:${t.running?'var(--acc)':'var(--bg2)'};cursor:pointer;font-family:inherit;color:${t.running?'#fff':'var(--t2)'};" onclick="${t.running?'stopTodoTimer('+t.id+')':'startTodoTimer('+t.id+')'}">${t.running?'■':'▶'}</button>
@@ -2018,7 +2018,7 @@ function renderTodos(){
         ondragstart="event.dataTransfer.setData('text/plain','${t.id}');event.dataTransfer.setData('text/todo-id','${t.id}')">
         <input type="checkbox" ${t.done?'checked':''} onchange="toggleTodo(${t.id})">
         <span class="badge ${catColors[t.cat]}">${catLabels[t.cat]}</span>
-        <span class="todo-text" style="flex:1">${t.text}</span>
+        <span class="todo-text" style="flex:1">${escH(t.text)}</span>
         ${t.priority==='high'?`<span style="font-size:10px;font-weight:500;color:var(--acc)">HIGH</span>`:''}
         <span class="badge ${dday<=3?'badge-red':dday<=7?'badge-amber':'badge-gray'}" style="font-size:10px">D-${dday}</span>
         <button class="edit-btn" onclick="openTodoModal(${t.id})">수정</button>
@@ -2229,8 +2229,8 @@ function renderWorks(){
           const isSpin=!!(w.parentTitle||w.subType);
           const subLabel=w.subType||'외전';
           return`<div class="kcard" style="border-left:3px solid ${platColor};${isSpin?'margin-left:10px':''}" draggable="true" ondragstart="dragWork(event,${w.id})" onclick="openWorkModal(${w.id})" title="클릭해서 수정">
-          <div style="font-weight:500;font-size:12px;${isSpin?'color:var(--t2);font-style:italic':''}">${isSpin?'↳ ':''}${w.title}${isSpin?` <span class="kind-badge kb-${kindCls(subLabel)}" style="margin-left:4px">${subLabel}</span>`:''}</div>
-          <div style="color:var(--t2);font-size:11px;margin-top:2px">${w.author}${kId==='works-kanban'?' · '+w.gLabel:''}</div>
+          <div style="font-weight:500;font-size:12px;${isSpin?'color:var(--t2);font-style:italic':''}">${isSpin?'↳ ':''}${escH(w.title)}${isSpin?` <span class="kind-badge kb-${kindCls(subLabel)}" style="margin-left:4px">${escH(subLabel)}</span>`:''}</div>
+          <div style="color:var(--t2);font-size:11px;margin-top:2px">${escH(w.author)}${kId==='works-kanban'?' · '+w.gLabel:''}</div>
           ${promoText&&kId==='works-kanban'?`<div style="margin-top:4px"><span style="font-size:10px;padding:1px 7px;border-radius:99px;background:${platColor}22;color:${platColor};border:0.5px solid ${platColor}55;display:inline-block;font-weight:500">프로모션 · ${promoText}</span></div>`:''}
         </div>`;
         }).join('')}
@@ -2246,11 +2246,11 @@ function renderWorks(){
     const isSpin=!!(w.parentTitle||w.subType);
     const subLabel=w.subType||'외전';
     return`<tr>
-    <td style="font-weight:500;${isSpin?'color:var(--t2);font-style:italic':''}">${isSpin?'<span style="margin-right:3px">↳</span>':''}${w.title}${isSpin?` <span class="kind-badge kb-${kindCls(subLabel)}" style="margin-left:4px">${subLabel}</span>`:''}</td><td style="color:var(--t2)">${w.author}</td>
+    <td style="font-weight:500;${isSpin?'color:var(--t2);font-style:italic':''}">${isSpin?'<span style="margin-right:3px">↳</span>':''}${escH(w.title)}${isSpin?` <span class="kind-badge kb-${kindCls(subLabel)}" style="margin-left:4px">${escH(subLabel)}</span>`:''}</td><td style="color:var(--t2)">${escH(w.author)}</td>
     <td>${w.gLabel}</td><td><span class="badge ${stageBadge[w.stage]||'badge-gray'}">${w.stage}</span></td>
-    <td style="color:${platColor};font-weight:500">${w.platform}</td>
+    <td style="color:${platColor};font-weight:500">${escH(w.platform)}</td>
     <td style="color:var(--t2);font-size:12px">${w.pubdate?w.pubdate.replace(/-/g,'.'):'−'}</td>
-    <td style="font-size:12px;color:var(--t2)">${wp?wp.title:'−'}</td>
+    <td style="font-size:12px;color:var(--t2)">${escH(wp?wp.title:'−')}</td>
     <td><div class="row-actions"><button class="edit-btn" onclick="openWorkModal(${w.id})">수정</button></div></td>
   </tr>`;
   }).join('');
@@ -2416,7 +2416,7 @@ function renderCalendar(){
     if(td.getFullYear()===calYear&&td.getMonth()===calMonth&&td.getDate()===d)div.classList.add('today');
     const k=`${calYear}-${calMonth+1}-${d}`;
     const dayEvts=evts[k]||[];
-    div.innerHTML=`<div class="cal-day-num">${d}</div>`+dayEvts.map(e=>`<div class="cal-event ${e.type}">${e.text}</div>`).join('');
+    div.innerHTML=`<div class="cal-day-num">${d}</div>`+dayEvts.map(e=>`<div class="cal-event ${e.type}">${escH(e.text)}</div>`).join('');
     body.appendChild(div);
   }
   const rem=(7-(off+dim)%7)%7;for(let i=1;i<=rem;i++){const d=document.createElement('div');d.className='cal-day other-month';d.innerHTML=`<div class="cal-day-num">${i}</div>`;body.appendChild(d);}
@@ -2431,11 +2431,11 @@ function renderPromos(){
   if(!filtered.length){list.innerHTML='<div class="empty-state">프로모션 없음</div>';return;}
   list.innerHTML=filtered.map(p=>`<div class="promo-item">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
-      <div><span style="font-weight:500">${p.title}</span><span class="badge ${platBadge[p.platform]||'badge-gray'}" style="margin-left:8px">${p.platform}</span><span class="badge ${statusBadge2[p.status]||'badge-gray'}" style="margin-left:4px">${p.status}</span>
+      <div><span style="font-weight:500">${escH(p.title)}</span><span class="badge ${platBadge[p.platform]||'badge-gray'}" style="margin-left:8px">${escH(p.platform)}</span><span class="badge ${statusBadge2[p.status]||'badge-gray'}" style="margin-left:4px">${escH(p.status)}</span>
       <button class="edit-btn" style="margin-left:8px" onclick="openPromoModal(${p.id})">수정</button></div>
-      <span style="font-size:12px;color:var(--t2)">${p.period}</span>
+      <span style="font-size:12px;color:var(--t2)">${escH(p.period)}</span>
     </div>
-    <div style="font-size:12px;color:var(--t2)">${p.works} · ${p.detail}</div>
+    <div style="font-size:12px;color:var(--t2)">${escH(p.works)} · ${escH(p.detail)}</div>
   </div>`).join('');
 }
 function filterPromo(f,el){promoFilter=f;document.querySelectorAll('#promo-tabs .tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderPromos();}
@@ -2443,7 +2443,7 @@ function searchPromo(q){
   const res=document.getElementById('promo-search-result');if(!q.trim()){res.innerHTML='';return;}
   const hits=promos.filter(p=>p.works.toLowerCase().includes(q.toLowerCase())||p.title.toLowerCase().includes(q.toLowerCase()));
   if(!hits.length){res.innerHTML=`<div style="font-size:13px;color:var(--t2);padding:8px 0">"${q}" 관련 프로모션 없음</div>`;return;}
-  res.innerHTML=`<div style="font-size:12px;font-weight:500;color:var(--t2);margin-bottom:8px">"${q}" 히스토리 (${hits.length}건)</div>`+hits.map(p=>`<div class="promo-item"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div><span style="font-weight:500">${p.title}</span><span class="badge ${platBadge[p.platform]||'badge-gray'}" style="margin-left:8px">${p.platform}</span></div><span style="font-size:12px;color:var(--t2)">${p.period}</span></div><div style="font-size:12px;color:var(--t2)">${p.works} · ${p.detail}</div></div>`).join('');
+  res.innerHTML=`<div style="font-size:12px;font-weight:500;color:var(--t2);margin-bottom:8px">"${q}" 히스토리 (${hits.length}건)</div>`+hits.map(p=>`<div class="promo-item"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div><span style="font-weight:500">${escH(p.title)}</span><span class="badge ${platBadge[p.platform]||'badge-gray'}" style="margin-left:8px">${escH(p.platform)}</span></div><span style="font-size:12px;color:var(--t2)">${escH(p.period)}</span></div><div style="font-size:12px;color:var(--t2)">${escH(p.works)} · ${escH(p.detail)}</div></div>`).join('');
 }
 function openPromoModal(id){
   editingPromoId=id;const p=id?promos.find(x=>x.id===id):null;
@@ -2545,13 +2545,13 @@ function renderSchedule(){
         const urgent=dDay!==null&&dDay<=7&&dDay>=0;
         return`<tr>
           <td style="${urgent?'color:var(--acc);font-weight:500':'color:var(--t2)'}">${s.date?s.date.replace(/-/g,'.'):'-'}${dDay!==null&&dDay>=0?` <span class="badge badge-${dDay===0?'red':dDay<=3?'red':dDay<=7?'amber':'gray'}" style="font-size:10px">${dDay===0?'D-Day':'D-'+dDay}</span>`:''}</td>
-          <td style="font-weight:500;${(s.subType||s.provisional)?'color:var(--t2)':''}">${s.title}${s.provisional?' <span class="spinoff-badge">임시</span>':''}</td>
+          <td style="font-weight:500;${(s.subType||s.provisional)?'color:var(--t2)':''}">${escH(s.title)}${s.provisional?' <span class="spinoff-badge">임시</span>':''}</td>
           <td>${kindBadge(s)}</td>
-          <td style="color:var(--t2)">${s.author}</td>
-          <td style="${s.subType==='전사'?'color:var(--t2)':platColor(s.platform)}">${s.subType==='전사'?'-':s.platform}</td>
+          <td style="color:var(--t2)">${escH(s.author)}</td>
+          <td style="${s.subType==='전사'?'color:var(--t2)':platColor(s.platform)}">${escH(s.subType==='전사'?'-':s.platform)}</td>
           <td>${s.subType==='전사'?'<span style="color:var(--t2)">-</span>':`<span class="badge ${stageBadge[s.stage]||'badge-gray'}">${s.stage}</span>`}</td>
-          <td style="font-size:12px;color:var(--t2)">${s.promo||'-'}</td>
-          <td style="font-size:12px;color:var(--t2)">${s.note}</td>
+          <td style="font-size:12px;color:var(--t2)">${escH(s.promo||'-')}</td>
+          <td style="font-size:12px;color:var(--t2)">${escH(s.note)}</td>
           <td><div class="row-actions"><button class="edit-btn" onclick="openSchedModal(${s.id})">수정</button></div></td>
         </tr>`;
       };
@@ -2671,8 +2671,10 @@ function renderSchedCal(){
     div.innerHTML=`<div class="cal-day-num" style="${numColor?'color:'+numColor+';':''}">${d}${holidayMark}</div>`+pubs.map(s=>{
       const dDay=s.date?Math.round((new Date(s.date)-today)/864e5):null;
       const platCls=(s.platform==='전사'||s.subType==='전사')?'sc-gray':s.platform==='시리즈'?'sc-teal':s.platform==='리디'?'sc-blue':s.platform==='카카오'?'sc-amber':dDay===null?'sc-gray':dDay<=7?'sc-red':new Date(s.date).getMonth()===schedCalMonth?'sc-blue':'sc-teal';
-      return`<div class="sched-cal-event ${platCls}${(s.subType||s.provisional)?' spinoff':''}" title="${s.author} · ${s.note}${s.subType?` · ${s.subType}(본편: ${s.parentTitle})`:s.provisional?' · 임시 일정(작품 진행현황 미반영)':''}">${s.title} <span style="opacity:.75;font-size:9px">[${s.subType==='전사'?'전사':kindKey(s)+'·'+s.platform}]</span></div>`;
+      return`<div class="sched-cal-event ${platCls}${(s.subType||s.provisional)?' spinoff':''}" onclick="event.stopPropagation();openSchedModal(${s.id})" style="cursor:pointer" title="${escH(s.author)} · ${escH(s.note)}${s.subType?` · ${s.subType}(본편: ${escH(s.parentTitle)})`:s.provisional?' · 임시 일정(작품 진행현황 미반영)':''}">${escH(s.title)} <span style="opacity:.75;font-size:9px">[${escH(s.subType==='전사'?'전사':kindKey(s)+'·'+s.platform)}]</span></div>`;
     }).join('');
+    div.title='클릭해서 '+(schedCalMonth+1)+'월 '+d+'일에 출간 일정 등록';
+    div.onclick=()=>openSchedModal(null,dateStr);
     body.appendChild(div);
   }
   const rem=(7-(off+dim)%7)%7;for(let i=1;i<=rem;i++){const d=document.createElement('div');d.className='cal-day other-month';d.innerHTML=`<div class="cal-day-num">${i}</div>`;body.appendChild(d);}
@@ -2688,8 +2690,8 @@ function renderPendingList(containerId,pendings){
       ${pendings.map(w=>`<div style="display:flex;align-items:center;gap:8px;background:var(--bg1);border:0.5px solid var(--b1);border-radius:8px;padding:6px 10px;cursor:pointer" onclick="openWorkModal(${w.id})">
         <span style="font-size:13px">${stageEmoji[w.stage]||'📝'}</span>
         <span style="font-size:11px;color:var(--t2);min-width:26px">${schedCalMonth+1}/${w._day}</span>
-        <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t1)">${w.title}</span>
-        <span style="font-size:11px;color:var(--t2)">${w.platform||'-'} · ${w.stage}</span>
+        <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t1)">${escH(w.title)}</span>
+        <span style="font-size:11px;color:var(--t2)">${escH(w.platform||'-')} · ${w.stage}</span>
       </div>`).join('')}
     </div>
   </div>`;
@@ -2759,8 +2761,8 @@ function renderSchedYear(){
         return`<div class="ycard-item" onclick="openSchedModal(${s.id})" title="클릭해서 수정" style="font-size:11px;margin-bottom:5px;padding:2px 4px;display:flex;align-items:flex-start;gap:6px;line-height:1.4">
           <span style="color:${pc};font-size:11px;font-weight:700;min-width:26px;flex-shrink:0;padding-top:1px">${day}일</span>
           <div style="flex:1;min-width:0">
-            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:${sub?'var(--t2)':'var(--t1)'}" title="${s.title}">${kindBadge(s)}${s.provisional?'<span class="kind-badge" style="background:var(--bg3);color:var(--t2)">임시</span>':''}${s.title}</div>
-            ${isAll?'':`<div style="font-size:10px;color:${pc};font-weight:500;margin-top:1px">${s.platform}${s.stage?` · ${s.stage}`:''}</div>`}
+            <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:${sub?'var(--t2)':'var(--t1)'}" title="${escH(s.title)}">${kindBadge(s)}${s.provisional?'<span class="kind-badge" style="background:var(--bg3);color:var(--t2)">임시</span>':''}${escH(s.title)}</div>
+            ${isAll?'':`<div style="font-size:10px;color:${pc};font-weight:500;margin-top:1px">${escH(s.platform)}${s.stage?` · ${s.stage}`:''}</div>`}
           </div>
         </div>`;
       }).join('')}
@@ -2768,8 +2770,8 @@ function renderSchedYear(){
       ${pendings.map(w=>{
         const day=new Date(w.pubdate).getDate();
         return`<div class="ycard-item" style="font-size:11px;margin-bottom:4px;padding:2px 4px;line-height:1.4" onclick="openWorkModal(${w.id})" title="미확정 · ${w.stage}">
-          <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:var(--t1)" title="${w.title}"><span style="color:var(--t2);font-size:10px;font-weight:700">${day}일</span> ${kindBadge(w)}${stageEmoji[w.stage]||'📝'} ${w.title}</div>
-          <div style="font-size:10px;color:var(--t2)">${w.platform||'-'} · ${w.stage}</div>
+          <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:var(--t1)" title="${escH(w.title)}"><span style="color:var(--t2);font-size:10px;font-weight:700">${day}일</span> ${kindBadge(w)}${stageEmoji[w.stage]||'📝'} ${escH(w.title)}</div>
+          <div style="font-size:10px;color:var(--t2)">${escH(w.platform||'-')} · ${w.stage}</div>
         </div>`;
       }).join('')}
       ${(!pubs.length&&!pendings.length)?`<div style="font-size:11px;color:var(--t2);padding:.25rem 0">-</div>`:''}
@@ -3025,7 +3027,7 @@ function renderExclusive(){
     const d=daysUntil(s.date);
     if(d!==null&&d>=0&&d<=14)alerts.push({title:s.title,l:'출간',d,date:s.date});
   });
-  const alertHTML=alerts.sort((a,b)=>a.d-b.d).map(a=>`<div class="excl-alert${a.d<=14?' urgent':''}"><span style="font-size:16px;flex-shrink:0">${a.d<=7?'🔴':'🟡'}</span><div style="flex:1"><strong>${a.title}</strong> ${a.l}${a.l==='출간'?'':' 독점만료'} <strong style="color:${a.d<=7?'#b01830':'#8a5c00'}">${a.d===0?'오늘':a.d+'일 후'}</strong> (${fmtD(a.date)})</div></div>`).join('');
+  const alertHTML=alerts.sort((a,b)=>a.d-b.d).map(a=>`<div class="excl-alert${a.d<=14?' urgent':''}"><span style="font-size:16px;flex-shrink:0">${a.d<=7?'🔴':'🟡'}</span><div style="flex:1"><strong>${escH(a.title)}</strong> ${a.l}${a.l==='출간'?'':' 독점만료'} <strong style="color:${a.d<=7?'#b01830':'#8a5c00'}">${a.d===0?'오늘':a.d+'일 후'}</strong> (${fmtD(a.date)})</div></div>`).join('');
   ['excl-alerts','excl-alerts-page'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=alertHTML;});
   const mainExclusives=exclusives.filter(ex=>!ex.subType); // 외전/단행은 출간 종수 집계에서 제외
   const active=mainExclusives.filter(ex=>[ex.e1e,ex.e2e].filter(Boolean).some(d=>daysUntil(d)>0)).length;
@@ -3038,7 +3040,7 @@ function renderExclusive(){
     // fallback: show schedPub reference rows
     if(schedPub.length){
       const platC=p=>p==='리디'?'#185fa5':p==='시리즈'?'#15803d':p==='카카오'?'#d97706':'inherit';
-      body.innerHTML=schedPub.filter(s=>s.date).map(s=>`<tr><td style="font-weight:500">${s.title}</td><td style="color:var(--t2)">${s.author}</td><td style="font-size:12px;font-weight:500;color:${platC(s.platform)}">${s.platform}</td><td style="font-size:12px">${fmtD(s.date)}</td><td colspan="6" style="font-size:12px;color:var(--t2)">독점 미등록</td><td><button class="edit-btn btn-acc" style="background:var(--acc);color:#fff;border-color:var(--acc)" onclick="openExclModalPrefill('${s.title}','${s.author}','${s.platform}','${s.date}')">+ 등록</button></td></tr>`).join('');
+      body.innerHTML=schedPub.filter(s=>s.date).map(s=>`<tr><td style="font-weight:500">${escH(s.title)}</td><td style="color:var(--t2)">${escH(s.author)}</td><td style="font-size:12px;font-weight:500;color:${platC(s.platform)}">${escH(s.platform)}</td><td style="font-size:12px">${fmtD(s.date)}</td><td colspan="6" style="font-size:12px;color:var(--t2)">독점 미등록</td><td><button class="edit-btn btn-acc" style="background:var(--acc);color:#fff;border-color:var(--acc)" onclick="openExclModalPrefill('${escJ(s.title)}','${escJ(s.author)}','${escJ(s.platform)}','${s.date}')">+ 등록</button></td></tr>`).join('');
     } else {
       body.innerHTML=`<tr><td colspan="13"><div class="empty-state">독점 작품 없음</div></td></tr>`;
     }
@@ -3052,7 +3054,7 @@ function renderExclusive(){
     };
     const isSpin=!!(ex.parentTitle||ex.subType);
     const subLabel=ex.subType||'외전';
-    return`<tr><td style="font-weight:500;white-space:nowrap;${isSpin?'color:var(--t2);font-style:italic':''}">${isSpin?'↳ ':''}${ex.title}${isSpin?` <span class="kind-badge kb-${kindCls(subLabel)}" style="margin-left:4px">${subLabel}</span>`:''}</td><td style="color:var(--t2)">${ex.author}</td><td><span style="font-size:12px;font-weight:500;${ex.platform==='리디'?'color:#185fa5':ex.platform==='시리즈'?'color:#15803d':ex.platform==='카카오'?'color:#a16207':''}">${ex.platform}</span></td><td style="font-size:12px">${fmtD(ex.launch)}</td>${mkCell(ex.e1s,ex.e1e)}<td style="font-size:12px;color:var(--t2)">${ex.plat2||'-'}</td>${mkCell(ex.e2s,ex.e2e)}<td style="font-size:12px;color:var(--t2)">${ex.cost?ex.cost.toLocaleString()+'원':'-'}</td><td style="font-size:12px;color:var(--t2);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ex.note}</td><td><button class="edit-btn" onclick="openExclModal(${ex.id})">수정</button></td></tr>`;
+    return`<tr><td style="font-weight:500;white-space:nowrap;${isSpin?'color:var(--t2);font-style:italic':''}">${isSpin?'↳ ':''}${escH(ex.title)}${isSpin?` <span class="kind-badge kb-${kindCls(subLabel)}" style="margin-left:4px">${escH(subLabel)}</span>`:''}</td><td style="color:var(--t2)">${escH(ex.author)}</td><td><span style="font-size:12px;font-weight:500;${ex.platform==='리디'?'color:#185fa5':ex.platform==='시리즈'?'color:#15803d':ex.platform==='카카오'?'color:#a16207':''}">${escH(ex.platform)}</span></td><td style="font-size:12px">${fmtD(ex.launch)}</td>${mkCell(ex.e1s,ex.e1e)}<td style="font-size:12px;color:var(--t2)">${ex.plat2||'-'}</td>${mkCell(ex.e2s,ex.e2e)}<td style="font-size:12px;color:var(--t2)">${ex.cost?ex.cost.toLocaleString()+'원':'-'}</td><td style="font-size:12px;color:var(--t2);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(ex.note)}</td><td><button class="edit-btn" onclick="openExclModal(${ex.id})">수정</button></td></tr>`;
   }).join('');
 }
 function onEmParentChange(){syncKind('em');}
@@ -3128,6 +3130,7 @@ function filterAuthorRole(role,el){
   renderAuthors();
 }
 function escH(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function escJ(v){return escH(String(v==null?'':v).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));}
 function renderAuthors(){
   const tb=document.getElementById('author-tbody');
   // 역할 필드가 없던 기존(구버전) 데이터는 '작가'로 간주 (별도 마이그레이션 없이 항상 안전하게 처리)
@@ -3213,11 +3216,11 @@ function renderContacts(){
     <thead><tr><th>날짜</th><th>작가명</th><th>이메일</th><th>작품 / 링크</th><th>상태</th><th>메모</th><th></th></tr></thead>
     <tbody>${filtered.map(c=>`<tr>
       <td style="font-size:12px;color:var(--t2);white-space:nowrap">${c.date}</td>
-      <td style="font-weight:500">${c.name}</td>
-      <td style="font-size:12px;color:var(--t2)">${c.email}</td>
-      <td style="font-size:12px">${c.work||'-'}${c.link?`<a href="${c.link}" target="_blank" style="display:inline-block;margin-left:6px;font-size:10px;color:var(--acc);text-decoration:none;border:0.5px solid var(--acc);border-radius:4px;padding:1px 6px">링크 ↗</a>`:''}</td>
-      <td><span class="badge ${cBadge[c.status]||'badge-gray'}">${c.status}</span></td>
-      <td style="font-size:12px;color:var(--t2);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.memo}</td>
+      <td style="font-weight:500">${escH(c.name)}</td>
+      <td style="font-size:12px;color:var(--t2)">${escH(c.email)}</td>
+      <td style="font-size:12px">${escH(c.work||'-')}${c.link?`<a href="${/^https?:\/\//i.test(c.link)?escH(c.link):'#'}" rel="noopener noreferrer" target="_blank" style="display:inline-block;margin-left:6px;font-size:10px;color:var(--acc);text-decoration:none;border:0.5px solid var(--acc);border-radius:4px;padding:1px 6px">링크 ↗</a>`:''}</td>
+      <td><span class="badge ${cBadge[c.status]||'badge-gray'}">${escH(c.status)}</span></td>
+      <td style="font-size:12px;color:var(--t2);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(c.memo)}</td>
       <td><div class="row-actions"><button class="edit-btn" onclick="openContactModal(${c.id})">수정</button></div></td>
     </tr>`).join('')}</tbody>
   </table></div>`;
@@ -3388,9 +3391,9 @@ function renderTimeSchedule(){
     const tc=TEXT_COLORS[b.colorIdx%7];
     const borderL=b.auto?`border-left:3px solid ${tc};`:'';
     rowsHTML+=`<div id="tb-${b.id}" style="position:absolute;top:${top}px;left:${LBL_W+2}px;right:4px;height:${height}px;background:${bg};color:${tc};${borderL}border-radius:6px;padding:3px 6px 8px;font-size:10px;font-weight:500;overflow:hidden;z-index:10;display:flex;flex-direction:column;gap:2px;box-shadow:0 1px 4px rgba(0,0,0,.08);user-select:none"
-      title="${b.text} (${b.duration}분)${b.auto?' · 자동기록':''}">
+      title="${escH(b.text)} (${b.duration}분)${b.auto?' · 자동기록':''}">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:4px">
-        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.auto?'▶ ':''}<b>${String(b.hour).padStart(2,'0')}:${String(b.minute).padStart(2,'0')}</b> ${b.text}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${b.auto?'▶ ':''}<b>${String(b.hour).padStart(2,'0')}:${String(b.minute).padStart(2,'0')}</b> ${escH(b.text)}</span>
         <button onclick="deleteTimeBlock(${b.id})" style="background:none;border:none;cursor:pointer;color:${tc};opacity:.6;font-size:11px;padding:0;line-height:1;flex-shrink:0">✕</button>
       </div>
       <div onmousedown="startResizeBlock(event,${b.id})"
@@ -3584,7 +3587,7 @@ function renderWeekly(){
     const bannerHtml=personalItems.length?personalItems.map(p=>{
       const bg=p.noOvertime?'#fef3c7':p.done?'#f3f4f6':'#fce7f3';
       const tc=p.noOvertime?'#92400e':p.done?'#9ca3af':'#be185d';
-      const label=`${p.noOvertime?'✏️ ':'🪼 '}${p.text}${p.time?' · '+p.time:''}`;
+      const label=`${p.noOvertime?'✏️ ':'🪼 '}${escH(p.text)}${p.time?' · '+p.time:''}`;
       return`<div style="background:${bg};color:${tc};font-size:10px;padding:3px 8px;font-weight:500;display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="openWeeklyModal(${p.id},${dayIdx})">${label}<span style="opacity:.5;font-size:9px">수정</span></div>`;
     }).join(''):'';
     return`<div style="background:var(--bg1);border:${isToday?'1.5px solid var(--acc)':'0.5px solid var(--b1)'};border-radius:var(--rl);overflow:hidden"
@@ -3608,7 +3611,7 @@ function renderWeekly(){
           ${dayItems.length?dayItems.map(t=>`<div draggable="true" ondragstart="dragWeeklyTodo(event,${t.id})" style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:grab">
             <input type="checkbox" ${t.done?'checked':''} onchange="toggleWeeklyTodo(${t.id})" style="width:13px;height:13px">
             <span class="badge ${catColors[t.cat]||'badge-gray'}" style="font-size:10px;padding:1px 5px">${catLabels[t.cat]||t.cat}</span>
-            <span style="flex:1;${t.done?'text-decoration:line-through;color:var(--t2)':''}">${t.text}</span>
+            <span style="flex:1;${t.done?'text-decoration:line-through;color:var(--t2)':''}">${escH(t.text)}</span>
             <button class="edit-btn" onclick="openWeeklyModal(${t.id},0)" style="padding:1px 6px;font-size:10px">수정</button>
           </div>`).join(''):'<div style="font-size:11px;color:var(--t2)">없음</div>'}
         </div>
@@ -3617,8 +3620,8 @@ function renderWeekly(){
           <div style="display:flex;flex-direction:column;gap:4px">
             ${collabItems.map(t=>`<div draggable="true" ondragstart="dragWeeklyTodo(event,${t.id})" style="display:flex;align-items:center;gap:5px;font-size:11px;cursor:grab">
               <input type="checkbox" ${t.done?'checked':''} onchange="toggleWeeklyTodo(${t.id})" style="width:12px;height:12px;flex-shrink:0">
-              <span style="color:var(--t2);${t.done?'text-decoration:line-through':''}">${t.collabName}${t.collabWork?' · '+t.collabWork:''}</span>
-              <span style="flex:1;${t.done?'text-decoration:line-through;color:var(--t2)':''}">${t.text}</span>
+              <span style="color:var(--t2);${t.done?'text-decoration:line-through':''}">${escH(t.collabName)}${t.collabWork?' · '+escH(t.collabWork):''}</span>
+              <span style="flex:1;${t.done?'text-decoration:line-through;color:var(--t2)':''}">${escH(t.text)}</span>
               <button class="edit-btn" onclick="openWeeklyModal(${t.id},0)" style="padding:1px 6px;font-size:10px">수정</button>
             </div>`).join('')}
           </div>
