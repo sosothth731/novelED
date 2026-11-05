@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>novelED — 업무 대시보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -195,37 +195,7 @@ tr:hover td{background:var(--bg2)}
 /* ── gingham: 레이스 청순 감성 ── */
 
 
-  repeating-linear-gradient(0deg,transparent,transparent 21px,rgba(36,31,24,.035) 21px,rgba(36,31,24,.035) 22px),
-  repeating-linear-gradient(90deg,transparent,transparent 21px,rgba(36,31,24,.035) 21px,rgba(36,31,24,.035) 22px),
-  var(--bg3)!important}
 
-/* ═══ postit — 편집자 책상 위 포스트잇 (파스텔, 가독성 우선) ═══ */
-body[data-theme="postit"]{--nav:#c76b82;--nacc:#ffe4a3;--acc:#d9556f;--a2:#eda934;--a3:#4a9c76;--bg1:#fffcf8;--bg2:#fdf1e4;--bg3:#f8e8da;--t1:#3a2530;--t2:#7d5e68;--b1:rgba(58,37,48,.08);--b2:rgba(199,107,130,.25);--r:12px;--rl:16px}
-body[data-theme="postit"] .nav{background:linear-gradient(175deg,#c76b82,#d98aa0)!important}
-body[data-theme="postit"] .nav-logo{color:#fffaf6!important}
-body[data-theme="postit"] .nav-logo span{color:var(--nacc)!important}
-body[data-theme="postit"] .nav-logo::before{content:'📌 '}
-body[data-theme="postit"] .nav-item{color:rgba(255,250,246,.62)!important}
-body[data-theme="postit"] .nav-item:hover{color:#fffaf6!important;background:rgba(255,255,255,.14)!important}
-body[data-theme="postit"] .nav-item.active{color:#fffaf6!important;background:rgba(255,255,255,.2)!important;border-right-color:var(--nacc)!important}
-body[data-theme="postit"] .nav-section{color:rgba(255,250,246,.38)!important}
-body[data-theme="postit"] .card{background:var(--bg1)!important;border:0.5px solid var(--b1)!important;border-radius:var(--rl)!important}
-body[data-theme="postit"] .card-sm{background:var(--bg1)!important;border:0.5px solid var(--b1)!important;position:relative!important;overflow:hidden!important}
-body[data-theme="postit"] .card-sm::after{content:'';position:absolute;top:0;right:0;border-width:0 14px 14px 0;border-style:solid;border-color:transparent rgba(58,37,48,.07) transparent transparent}
-body[data-theme="postit"] .dash-stat:nth-child(1){background:#fdeaef!important}
-body[data-theme="postit"] .dash-stat:nth-child(2){background:#fdf3df!important}
-body[data-theme="postit"] .dash-stat:nth-child(3){background:#e8f5ed!important}
-body[data-theme="postit"] .dash-stat:nth-child(4){background:#e9f1fa!important}
-body[data-theme="postit"] .btn-acc{background:var(--acc)!important;border:none!important;color:#fff!important}
-body[data-theme="postit"] .btn{border-color:var(--b2)!important}
-body[data-theme="postit"] .chip{border-color:var(--b1)!important}
-body[data-theme="postit"] .chip.sel{background:var(--acc)!important;border-color:var(--acc)!important;color:#fff!important}
-body[data-theme="postit"] .kanban-col{background:var(--bg2)!important;border:0.5px solid var(--b1)!important}
-body[data-theme="postit"] .kcard{background:var(--bg1)!important}
-body[data-theme="postit"] .badge{border:0.5px solid rgba(58,37,48,.07)!important;font-weight:600!important}
-body[data-theme="postit"] input[type=text],body[data-theme="postit"] input[type=date],body[data-theme="postit"] input[type=email],body[data-theme="postit"] input[type=url],body[data-theme="postit"] input[type=number],body[data-theme="postit"] select,body[data-theme="postit"] textarea{border-color:var(--b1)!important;background:var(--bg1)!important}
-body[data-theme="postit"] .theme-dot.active{border-color:var(--acc)!important}
-body[data-theme="postit"] .quick-jot{background:var(--acc)!important}
 
 /* ═══ marker — 원고 위 형광펜 표시 (파스텔 마커, 종이는 순백으로 가독성 확보) ═══ */
 body[data-theme="marker"]{--nav:#3f9c8d;--nacc:#fff29e;--acc:#ec8aa3;--a2:#ffcf56;--a3:#6ec1e4;--bg1:#ffffff;--bg2:#f9fbfa;--bg3:#eef6f4;--t1:#20302c;--t2:#5b6d68;--b1:rgba(32,48,44,.08);--b2:rgba(63,156,141,.25);--r:10px;--rl:14px}
@@ -276,6 +246,81 @@ body[data-theme="marker"] .quick-jot{background:var(--acc)!important;color:#fff!
 .ykind-chip.on{background:var(--acc);color:#fff;border-color:var(--acc)}
 .ycard-item{cursor:pointer;border-radius:4px}
 .ycard-item:hover{background:var(--bg2)}
+
+/* ═══ 모바일(좁은 화면) 보기 — 넓은 화면은 아무것도 바뀌지 않음 ═══ */
+.mtop,.mback{display:none}
+@media (max-width:800px){
+  html{-webkit-text-size-adjust:100%}
+  body{overflow-x:hidden}
+  .nav-hover-zone{display:none}
+  .mtop{display:flex;position:fixed;top:0;left:0;right:0;z-index:150;height:calc(48px + env(safe-area-inset-top,0px));padding:env(safe-area-inset-top,0px) 8px 0;align-items:center;gap:6px;background:var(--nav);color:#fff;box-sizing:border-box}
+  .mtop button{width:44px;height:44px;border:none;background:transparent;color:inherit;font-size:22px;line-height:1;cursor:pointer;border-radius:8px;-webkit-tap-highlight-color:transparent}
+  .mtop button:active{background:rgba(255,255,255,.15)}
+  .mtop .mtitle{flex:1;min-width:0;font-size:15px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .content{padding-top:calc(48px + env(safe-area-inset-top,0px))}
+  .page{padding:.875rem .75rem calc(5.5rem + env(safe-area-inset-bottom,0px))}
+  .page.tool-page{padding:0}
+  .tool-page iframe{height:calc(100vh - 48px - env(safe-area-inset-top,0px));height:calc(100dvh - 48px - env(safe-area-inset-top,0px))}
+  .page-title{font-size:17px;margin-bottom:.875rem}
+  .nav{width:min(82vw,300px);transform:translateX(-105%);z-index:300;padding-top:calc(1.5rem + env(safe-area-inset-top,0px));padding-bottom:calc(1.5rem + env(safe-area-inset-bottom,0px));-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+  body.nav-open .nav{transform:translateX(0)!important;box-shadow:6px 0 32px rgba(0,0,0,.3)!important}
+  body.nav-open{overflow:hidden}
+  .nav-item{padding:.8rem 1.25rem;font-size:14px}
+  .mback{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:250}
+  body.nav-open .mback{display:block}
+  .quick-jot{right:16px;bottom:calc(18px + env(safe-area-inset-bottom,0px))}
+  .grid2,.grid3{grid-template-columns:1fr}
+  .grid4{grid-template-columns:1fr 1fr}
+  .kanban-wrap{grid-template-columns:1fr!important}
+  .page table{display:block;overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}
+  .page input:not([type=checkbox]):not([type=radio]),.page select,.page textarea,.modal-backdrop input:not([type=checkbox]):not([type=radio]),.modal-backdrop select,.modal-backdrop textarea{font-size:16px!important}
+  .btn{min-height:34px}
+  .btn-sm{min-height:30px}
+  .modal-backdrop{align-items:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(12px + env(safe-area-inset-top,0px)) 8px calc(12px + env(safe-area-inset-bottom,0px));box-sizing:border-box}
+  .modal-backdrop>div{width:100%!important;max-width:560px!important;margin:auto!important;box-sizing:border-box}
+  .tab-row{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .cal-day{min-height:58px;padding:3px}
+  .cal-day-num{font-size:11px}
+  .cal-event,.sched-cal-event{font-size:9px;padding:1px 3px}
+  #sched-cal-list{margin-top:.875rem}
+}
+@media (max-width:560px){#weekly-grid{grid-template-columns:1fr}}
+
+
+/* ═══ 오트 세이지 — 오트밀 크림 + 세이지 그린 + 테라코타 포인트 ═══ */
+body[data-theme="oat"]{--nav:#47594d;--nacc:#e3c5a8;--acc:#b4694f;--a2:#d9a441;--a3:#7d9b86;--bg1:#fffdf9;--bg2:#f6f1e7;--bg3:#efe8da;--t1:#2f3a33;--t2:#6b7469;--b1:rgba(47,58,51,.1);--b2:rgba(47,58,51,.2);--r:10px;--rl:16px}
+body[data-theme="oat"] .nav{background:linear-gradient(175deg,#47594d,#566a5b)!important}
+body[data-theme="oat"] .nav-logo{color:#fbf6ec!important}
+body[data-theme="oat"] .nav-logo span{color:var(--nacc)!important;font-style:italic}
+body[data-theme="oat"] .nav-item{color:rgba(251,246,236,.72)!important}
+body[data-theme="oat"] .nav-item:hover{color:#fbf6ec!important;background:rgba(255,255,255,.1)!important}
+body[data-theme="oat"] .nav-item.active{color:#fbf6ec!important;background:rgba(255,255,255,.16)!important;border-right-color:var(--nacc)!important}
+body[data-theme="oat"] .nav-section{color:rgba(251,246,236,.4)!important}
+body[data-theme="oat"] .card{background:var(--bg1)!important;border:1px solid var(--b1)!important;border-radius:var(--rl)!important;box-shadow:0 1px 2px rgba(47,58,51,.04),0 12px 28px -18px rgba(47,58,51,.28)!important}
+body[data-theme="oat"] .card-sm{background:var(--bg1)!important;border:1px solid var(--b1)!important}
+body[data-theme="oat"] .dash-stat:nth-child(1){background:#f5e3dc!important}
+body[data-theme="oat"] .dash-stat:nth-child(2){background:#f6ecd0!important}
+body[data-theme="oat"] .dash-stat:nth-child(3){background:#e1ebe2!important}
+body[data-theme="oat"] .dash-stat:nth-child(4){background:#e4e9ee!important}
+body[data-theme="oat"] .btn{border-color:var(--b2)!important}
+body[data-theme="oat"] .btn-acc{background:var(--acc)!important;border:none!important;color:#fff!important}
+body[data-theme="oat"] .chip{border-color:var(--b1)!important}
+body[data-theme="oat"] .chip.sel{background:var(--acc)!important;border-color:var(--acc)!important;color:#fff!important}
+body[data-theme="oat"] .kanban-col{background:var(--bg2)!important;border:1px solid var(--b1)!important}
+body[data-theme="oat"] .kcard{background:var(--bg1)!important}
+body[data-theme="oat"] .badge{font-weight:600!important}
+body[data-theme="oat"] .theme-dot.active{border-color:#fbf6ec!important}
+body[data-theme="oat"] .quick-jot{background:var(--acc)!important;color:#fff!important}
+body[data-theme="oat"] .cal-day{background:var(--bg1);border-radius:10px}
+body[data-theme="oat"] .cal-day.today{background:#f6ecd0;border-color:var(--acc)}
+body[data-theme="oat"] .cal-day:hover{background:var(--bg2)}
+body[data-theme="oat"] .sched-cal-event{border-radius:6px;font-weight:500}
+body[data-theme="oat"] .sched-cal-event.sc-red{background:#f4d9d2;color:#8a3b27}
+body[data-theme="oat"] .sched-cal-event.sc-blue{background:#dfe8ee;color:#3d5a73}
+body[data-theme="oat"] .sched-cal-event.sc-teal{background:#dcebe0;color:#3a6a4d}
+body[data-theme="oat"] .sched-cal-event.sc-amber{background:#f5e8c5;color:#7a5a14}
+body[data-theme="oat"] .sched-cal-event.sc-gray{background:#ece7dd;color:#6b6459}
+body[data-theme="oat"] #sched-view-tabs .tab.active{color:var(--acc);border-bottom-color:var(--acc);font-weight:600}
 </style>
 
 <!-- ═══ FIREBASE SDK ═══ -->
@@ -671,6 +716,8 @@ window.__nedSync = function() {
 </head>
 <body data-theme="rose">
 <div class="app">
+<div class="mtop"><button type="button" id="mnav-btn" aria-label="메뉴 열기" aria-expanded="false" aria-controls="main-nav">☰</button><div class="mtitle" id="mtitle" role="heading" aria-level="1">대시보드</div></div>
+<div class="mback" id="mback"></div>
 <div class="nav-hover-zone" onmouseenter="showNav()" onmouseleave="hideNav()"></div>
 <nav class="nav" id="main-nav" onmouseenter="showNav()" onmouseleave="hideNav()">
   <div class="nav-logo">novel<span>ed</span>
@@ -3486,7 +3533,7 @@ function deleteTimeBlock(id){
 }
 
 // ══════ THEMES ══════
-const themes=[{id:'postit',c:'#e2879a',l:'포스트잇'},{id:'marker',c:'#4fb8a8',l:'형광펜'},{id:'midnight',c:'#4a7bb5',l:'미드나잇'},{id:'charcoal',c:'#b8883a',l:'차콜'},{id:'rose',c:'#d4748e',l:'그레이핑크'},{id:'indigo',c:'#5555b8',l:'인디고'}];
+const themes=[{id:'oat',c:'#7f9a86',l:'오트 세이지'},{id:'marker',c:'#4fb8a8',l:'형광펜'},{id:'midnight',c:'#4a7bb5',l:'미드나잇'},{id:'charcoal',c:'#b8883a',l:'차콜'},{id:'rose',c:'#d4748e',l:'그레이핑크'},{id:'indigo',c:'#5555b8',l:'인디고'}];
 // ── 커스텀 테마: 내비게이션 / 배경을 RGB로 직접 지정 ──
 const CUSTOM_KEY='ned_customtheme';
 let customTheme=load(CUSTOM_KEY,{nav:[44,52,72],bg:[238,240,246]});
@@ -4066,6 +4113,66 @@ function hideNav(){
     if(nav){ nav.style.transform=''; nav.style.boxShadow=''; }
   }, 120);
 }
+
+/* ═══ 모바일: 메뉴 서랍·제목·월 일정 목록 ═══ */
+(function(){
+  const mq=window.matchMedia?window.matchMedia('(max-width:800px)'):{matches:false};
+  const btn=document.getElementById('mnav-btn'), back=document.getElementById('mback'), mt=document.getElementById('mtitle');
+  const nav=document.getElementById('main-nav');
+  if(!btn||!nav) return;
+  // 마우스 올리기로 여닫는 방식은 터치에서 서랍을 가두므로, 좁은 화면에서는 끈다
+  const _sn=window.showNav,_hn=window.hideNav;
+  window.showNav=function(){ if(mq.matches) return; return _sn.apply(this,arguments); };
+  window.hideNav=function(){ if(mq.matches) return; return _hn.apply(this,arguments); };
+  function setOpen(o){
+    document.body.classList.toggle('nav-open',!!o);
+    btn.setAttribute('aria-expanded',o?'true':'false');
+    btn.setAttribute('aria-label',o?'메뉴 닫기':'메뉴 열기');
+  }
+  btn.addEventListener('click',()=>setOpen(!document.body.classList.contains('nav-open')));
+  back.addEventListener('click',()=>setOpen(false));
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') setOpen(false); });
+  function syncTitle(){
+    const a=nav.querySelector('.nav-item.active'); if(!a||!mt) return;
+    const t=(a.textContent||'').replace(/\s+/g,' ').trim(); if(t&&mt.textContent!==t) mt.textContent=t;
+  }
+  nav.addEventListener('click',e=>{
+    const it=e.target.closest('.nav-item'); if(!it||it.classList.contains('nav-fold')) return;
+    if(mq.matches){ setOpen(false); window.scrollTo(0,0); }
+    syncTitle();
+  });
+  new MutationObserver(syncTitle).observe(nav,{subtree:true,attributes:true,attributeFilter:['class']});
+  const _sp=window.showPage;
+  window.showPage=function(){ const r=_sp.apply(this,arguments); syncTitle(); return r; };
+  function onMq(){
+    if(mq.matches){ nav.style.transform=''; nav.style.boxShadow=''; } else setOpen(false);
+    renderSchedMonthList();
+  }
+  if(mq.addEventListener) mq.addEventListener('change',onMq);
+
+  // 좁은 화면의 월 캘린더는 칸이 작아 제목이 잘리므로, 그 달의 일정을 아래에 목록으로도 보여 준다
+  function renderSchedMonthList(){
+    const body=document.getElementById('sched-cal-body'); if(!body) return;
+    let el=document.getElementById('sched-cal-list');
+    if(!el){ el=document.createElement('div'); el.id='sched-cal-list'; body.parentNode.insertBefore(el,body.nextSibling); }
+    if(!mq.matches){ el.style.display='none'; el.innerHTML=''; return; }
+    el.style.display='';
+    const mm=String(schedCalMonth+1).padStart(2,'0'), pre=schedCalYear+'-'+mm+'-';
+    const list=schedPub.filter(s=>s.date&&String(s.date).startsWith(pre)).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+    const dn=['일','월','화','수','목','금','토'];
+    el.innerHTML='<div style="font-size:12px;color:var(--t2);margin-bottom:.4rem">'+(schedCalMonth+1)+'월 출간 일정 '+list.length+'건 · 날짜를 누르면 등록, 일정을 누르면 수정</div>'+
+      (list.length?'<div style="display:flex;flex-direction:column;gap:6px">'+list.map(s=>{
+        const d=new Date(s.date+'T00:00:00');
+        return '<div onclick="openSchedModal('+s.id+')" style="display:flex;gap:10px;align-items:baseline;background:var(--bg1);border:0.5px solid var(--b1);border-radius:8px;padding:8px 10px;cursor:pointer">'+
+          '<span style="font-size:12px;color:var(--t2);flex-shrink:0;min-width:48px">'+d.getDate()+'일 ('+dn[d.getDay()]+')</span>'+
+          '<span style="flex:1;min-width:0;font-weight:500;overflow-wrap:anywhere">'+escH(s.title)+'</span>'+
+          '<span style="font-size:11px;color:var(--t2);flex-shrink:0">'+escH(s.platform||'')+'</span></div>';
+      }).join('')+'</div>':'');
+  }
+  const _rsc=window.renderSchedCal;
+  window.renderSchedCal=function(){ const r=_rsc.apply(this,arguments); renderSchedMonthList(); return r; };
+  syncTitle();
+})();
 </script>
 <script>
 /* ═══ 작업 도구 (업무 뚝딱이 통합) — 각 도구는 독립 화면(iframe)으로 열려 입력 내용이 탭 이동 후에도 유지됩니다 ═══ */
